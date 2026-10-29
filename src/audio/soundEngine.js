@@ -453,6 +453,83 @@ export class SoundEngine {
     }
   }
 
+  /** Tiếng bật nhảy êm nhẹ (cloth/breath impulse phong cách Limbo/Gris) */
+  playJump() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(115, now);
+    osc.frequency.exponentialRampToValueAtTime(215, now + 0.11);
+
+    gain.gain.setValueAtTime(0.11, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+
+    osc.connect(gain);
+    gain.connect(this.sfxBus);
+    osc.start(now);
+    osc.stop(now + 0.14);
+
+    if (this.noiseBuffer) {
+      const nSrc = this.ctx.createBufferSource();
+      nSrc.buffer = this.noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 920;
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.045, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+      nSrc.connect(filter);
+      filter.connect(nGain);
+      nGain.connect(this.sfxBus);
+      nSrc.start(now, Math.random(), 0.1);
+    }
+  }
+
+  /** Tiếng tiếp đất đằm chắc */
+  playLand(act = 1) {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(act === 4 ? 108 : 84, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.14);
+
+    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.sfxBus);
+    osc.start(now);
+    osc.stop(now + 0.16);
+  }
+
+  /** Giai điệu ngân ấm khi chuyển giao thế hệ cuối Màn 2 & Màn 3 */
+  playHandoffChime() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    [392.0, 493.88, 587.33, 783.99].forEach((freq, idx) => {
+      const t = now + idx * 0.12;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.11, t + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.0008, t + 2.4);
+
+      osc.connect(gain);
+      gain.connect(this.sfxBus);
+      gain.connect(this.reverbBus.input);
+      osc.start(t);
+      osc.stop(t + 2.5);
+    });
+  }
+
   /** Tiếng gõ chữ typewriter thanh nhẹ phong cách kể chuyện */
   playTypewriter() {
     if (!this.initialized) return;

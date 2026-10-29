@@ -3,133 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ngọn Lửa Độc Lập &amp; Cơ Đồ Hôm Nay (1930 – Nay) | Interactive Storytelling</title>
+    <title>Dòng Chảy Độc Lập (1930 – Nay) | Nhóm Chủ đề 2</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,500;1,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
-      <!-- Canvas Thế giới 2D Parallax & Silhouette -->
+      <!-- Canvas Thế giới 2D Silhouette & Địa hình Đa tầng -->
       <canvas id="game-canvas"></canvas>
 
-      <!-- Thanh công cụ Thuyết trình (Presentation Bar) & Âm thanh -->
-      <header id="top-hud" class="glass-panel">
-        <div class="brand-mark">
-          <span class="diamond-icon">✦</span>
-          <span class="brand-title">DÒNG CHẢY ĐỘC LẬP</span>
+      <!-- Top HUD: Tiêu đề Màn (3.5s) -> Thu nhỏ cố định Thời gian & Địa điểm (scale 0.85, opacity 0.55) -->
+      <header id="top-context-hud" class="top-context-hud hidden" aria-live="polite">
+        <div id="context-meta" class="context-meta">
+          <span id="context-period">1930 – 1945</span>
+          <span class="meta-divider">|</span>
+          <span id="context-location">Xóm lao động nghèo</span>
         </div>
-
-        <nav id="act-nav" aria-label="Điều hướng nhanh 4 Màn thuyết trình">
-          <button type="button" class="act-btn active" data-act="1">
-            Màn 1 (1930-1945)
-          </button>
-          <button type="button" class="act-btn" data-act="2">
-            Màn 2 (1945-1954)
-          </button>
-          <button type="button" class="act-btn" data-act="3">
-            Màn 3 (1954-1975)
-          </button>
-          <button type="button" class="act-btn" data-act="4">
-            Màn 4 (1975-Nay)
-          </button>
-        </nav>
-
-        <div class="hud-right">
-          <div class="progress-pill" title="Tiến độ hành trình lịch sử">
-            <span id="role-indicator">Thanh niên yêu nước</span>
-            <div class="progress-track">
-              <div id="journey-progress-fill"></div>
-            </div>
-          </div>
-          <button type="button" id="btn-audio" class="icon-btn" title="Bật / Tắt âm thanh (M)">
-            <span id="audio-icon">🔊</span>
-            <span id="audio-label">Bật tiếng</span>
-          </button>
+        <div id="context-title-wrap" class="context-title-wrap">
+          <h2 id="context-title" class="context-title">MÀN 1 — NGỌN LỬA GIỮA ĐÊM ĐEN</h2>
+          <p id="context-subtitle" class="context-subtitle">
+            Từ Hội nghị thành lập Đảng đến Cách mạng Tháng Tám &amp; Tuyên ngôn Độc lập
+          </p>
         </div>
       </header>
 
-      <!-- Thẻ giới thiệu chương khi bước sang Màn mới -->
-      <section id="act-banner" class="act-banner" aria-live="polite">
-        <div class="act-banner-period" id="banner-period">MÀN 1 • 1930 – 1945</div>
-        <h2 class="act-banner-title" id="banner-title">NGỌN LỬA GIỮA ĐÊM ĐEN</h2>
-        <div class="act-banner-divider"><span>✦</span></div>
-        <p class="act-banner-sub" id="banner-sub">
-          Từ Hội nghị thành lập Đảng đến Cách mạng Tháng Tám &amp; Tuyên ngôn Độc lập
-        </p>
-      </section>
+      <!-- Dòng phụ đề tinh tế khi Chuyển giao thế hệ (Cuối Màn 2 & Cuối Màn 3) hoặc nhắc nhiệm vụ -->
+      <div id="cinematic-caption" class="cinematic-caption hidden"></div>
 
-      <!-- Thông điệp chuyển giao thế hệ ở x = 6100 -->
-      <div id="handoff-toast" class="handoff-toast hidden">
-        <div class="handoff-badge">✦ TIẾP LỬA HAI THẾ HỆ (1954) ✦</div>
-        <p id="handoff-text">
-          Người Ông (Vệ quốc đoàn) trao lại chiếc mũ chiến sĩ và lời thề độc lập cho Người Cha lên đường xẻ dọc Trường Sơn cứu nước.
-        </p>
-      </div>
-
-      <!-- Giao diện QTE Slow-motion -->
+      <!-- Giao diện QTE Slow-motion Tối giản -->
       <section id="qte-overlay" class="qte-overlay hidden" aria-live="assertive">
         <div class="qte-header">
-          <span class="qte-slowmo-tag">⚡ SLOW-MOTION HÀNH ĐỘNG</span>
+          <span class="qte-kicker">KHOẢNH KHẮC LỊCH SỬ</span>
           <h3 id="qte-title">Phá kho thóc Nhật</h3>
           <p id="qte-prompt">Bấm [SPACE] đúng nhịp vòng sáng!</p>
         </div>
 
-        <div id="qte-ring-stage" class="qte-ring-stage" title="Nhấp chuột hoặc bấm phím tương ứng">
-          <!-- Vòng mục tiêu vàng cố định -->
+        <div id="qte-ring-stage" class="qte-ring-stage" title="Bấm phím yêu cầu hoặc nhấp chuột">
           <div id="qte-target-zone" class="qte-target-zone"></div>
-          <!-- Vòng thu nhỏ dần (cho Timing QTE) -->
           <div id="qte-shrinking-ring" class="qte-shrinking-ring"></div>
-          <!-- Vòng tiến độ SVG (cho Mash QTE) -->
           <svg class="qte-mash-svg" viewBox="0 0 160 160">
             <circle class="qte-mash-bg" cx="80" cy="80" r="66" />
             <circle id="qte-mash-progress" class="qte-mash-fg" cx="80" cy="80" r="66" />
           </svg>
-          <!-- Phím yêu cầu ở tâm -->
           <div id="qte-key-cap" class="qte-key-cap">SPACE</div>
         </div>
 
-        <div id="qte-substatus" class="qte-substatus">Canh vòng sáng chạm viền vàng!</div>
+        <div id="qte-substatus" class="qte-substatus">Canh vòng sáng chạm viền vàng</div>
       </section>
 
       <!-- Màn hình khích lệ Fail-safe 1.5 giây (Không bao giờ chết) -->
       <div id="failsafe-overlay" class="failsafe-overlay hidden">
         <div class="failsafe-card">
-          <div class="failsafe-ornament">✦</div>
           <p id="failsafe-text">Giữ vững ý chí cách mạng! Hãy thử lại!</p>
         </div>
       </div>
 
-      <!-- Thanh giữ phím [F] 2.5s thắp hương tại Đài tưởng niệm (x = 11400) -->
+      <!-- Giao diện Giữ [F] 2.5s Dâng hương tại Đài tưởng niệm -->
       <section id="incense-hud" class="incense-hud hidden">
-        <div class="incense-card glass-panel">
-          <div class="incense-star">★ ĐÀI TƯỞNG NIỆM TỔ QUỐC GHI CÔNG ★</div>
+        <div class="incense-card">
           <p id="incense-prompt">Giữ phím [F] trong 2.5 giây để thắp nén tâm hương tri ân</p>
           <div class="incense-bar-outer">
             <div id="incense-bar-fill" class="incense-bar-fill"></div>
           </div>
-          <button type="button" id="btn-hold-incense" class="genshin-btn incense-hold-btn">
-            Giữ <kbd>F</kbd> để dâng hương (<span id="incense-percent">0%</span>)
+          <button type="button" id="btn-hold-incense" class="subtle-action-btn">
+            Giữ <kbd>F</kbd> dâng hương (<span id="incense-percent">0%</span>)
           </button>
         </div>
       </section>
 
-      <!-- Modal Kể chuyện Lịch sử & Tuyên ngôn Chiến thắng (Kiểu Genshin Impact) -->
+      <!-- Modal Tư liệu Lịch sử (Typewriter) -->
       <div id="story-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
         <article class="story-card">
-          <div class="card-corner tl"></div>
-          <div class="card-corner tr"></div>
-          <div class="card-corner bl"></div>
-          <div class="card-corner br"></div>
-
           <div class="story-tag-row">
-            <span class="diamond-icon">✦</span>
             <span id="modal-tag">MỐC LỊCH SỬ</span>
-            <span class="diamond-icon">✦</span>
           </div>
 
           <h2 id="modal-title" class="story-title">Tiêu đề tư liệu</h2>
@@ -141,9 +92,9 @@
           </div>
 
           <div class="story-footer">
-            <span id="modal-hint" class="modal-hint">Ấn <kbd>SPACE</kbd> hiện nhanh • Ấn <kbd>E</kbd> để đóng và đi tiếp</span>
-            <button type="button" id="btn-close-modal" class="genshin-btn">
-              <span>Tiếp tục hành trình</span>
+            <span id="modal-hint" class="modal-hint">Ấn SPACE hiện nhanh • Ấn E để tiếp tục</span>
+            <button type="button" id="btn-close-modal" class="primary-clean-btn">
+              <span>Tiếp tục</span>
               <kbd>E</kbd>
             </button>
           </div>
@@ -153,7 +104,6 @@
       <!-- Màn hình Kết thúc Trang trọng (Ending Finale Overlay) -->
       <div id="finale-overlay" class="finale-backdrop hidden" role="dialog" aria-modal="true">
         <article class="finale-card">
-          <div class="finale-emblem">★</div>
           <div class="finale-subtitle">HỒI ỨC BA THẾ HỆ &amp; SỨ MỆNH HÔM NAY</div>
           <h2 class="finale-heading">Tổ Quốc Ghi Công — Đời Đời Nhớ Ơn</h2>
 
@@ -167,50 +117,75 @@
             <p id="finale-lesson-text"></p>
           </div>
 
-          <button type="button" id="btn-replay" class="genshin-btn finale-replay-btn">
-            <span>✦ Trải nghiệm lại từ đầu ✦</span>
+          <button type="button" id="btn-replay" class="primary-clean-btn finale-replay-btn">
+            <span>Trải nghiệm lại từ đầu</span>
           </button>
         </article>
       </div>
 
-      <!-- Màn hình Mở đầu (Khởi tạo Web Audio & Giới thiệu) -->
+      <!-- Màn hình Mở đầu Tối giản -->
       <div id="intro-overlay" class="intro-backdrop">
         <div class="intro-card">
-          <div class="intro-kicker">✦ WEB INTERACTIVE STORYTELLING • VNR202 ✦</div>
+          <div class="intro-kicker">NHÓM CHỦ ĐỀ 2 • SẢN PHẨM HỌC TẬP</div>
           <h1 class="intro-title">Dòng Chảy Độc Lập</h1>
           <p class="intro-period">1930 — 1945 — 1954 — 1975 — HÔM NAY</p>
           <div class="story-divider"></div>
           <p class="intro-desc">
-            Bước chân qua bốn chặng đường lịch sử hào hùng của dân tộc dưới ngọn cờ vẻ vang của Đảng:
-            từ đêm đen nô lệ bừng lên ngọn lửa Cách mạng Tháng Tám, qua khói lửa Điện Biên,
-            xẻ dọc Trường Sơn đến bình minh Đổi mới và Cơ đồ Việt Nam hôm nay.
+            Hành trình đi qua bốn chặng đường lịch sử của dân tộc: từ ngọn lửa giữa đêm đen nô lệ,
+            qua chiến lũy Hà Nội và hào sâu Điện Biên, vượt đại ngàn Trường Sơn đến bình minh hòa bình hôm nay.
           </p>
-          <div class="intro-controls-preview">
-            <span><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> Di chuyển</span>
-            <span><kbd>E</kbd> Khám phá tư liệu</span>
-            <span><kbd>SPACE</kbd> <kbd>F</kbd> Hành động QTE</span>
-          </div>
-          <button type="button" id="btn-start-game" class="genshin-btn intro-start-btn">
-            <span>✦ Bắt đầu hành trình lịch sử ✦</span>
+          <p class="intro-subtle-keys">
+            Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span>
+          </p>
+          <button type="button" id="btn-start-game" class="primary-clean-btn intro-start-btn">
+            <span>Bước vào hành trình</span>
           </button>
         </div>
       </div>
 
-      <!-- Thanh hướng dẫn phím bấm góc dưới -->
-      <footer id="controls-hud" class="controls-hud glass-panel">
-        <div class="control-item">
-          <kbd>A</kbd><kbd>D</kbd> <span class="sep">hoặc</span> <kbd>←</kbd><kbd>→</kbd>
-          <span>Bước đi</span>
+      <!-- Thanh thông tin tối giản sát cạnh dưới (Minimalist Bottom Bar) -->
+      <footer id="bottom-bar" class="bottom-bar">
+        <div class="bottom-bar-left">
+          DÒNG CHẢY ĐỘC LẬP <span class="bar-pipe">|</span>
+          <span class="bar-sub">Nhóm Chủ đề 2 - Sản phẩm học tập</span>
         </div>
-        <div class="control-divider"></div>
-        <div class="control-item">
-          <kbd>E</kbd>
-          <span>Khám phá vật phẩm</span>
-        </div>
-        <div class="control-divider"></div>
-        <div class="control-item">
-          <kbd>SPACE</kbd> <kbd>F</kbd>
-          <span>Hành động QTE</span>
+
+        <div class="bottom-bar-right">
+          <div class="chapter-menu-wrapper">
+            <div id="chapter-drawer" class="chapter-drawer hidden" role="menu">
+              <div class="drawer-header">Chọn Chương / Màn</div>
+              <button type="button" class="drawer-item active" data-act="1" role="menuitem">
+                <span class="drawer-act-num">Màn 1</span>
+                <span class="drawer-act-meta">1930 – 1945 • Ngọn lửa giữa đêm đen</span>
+              </button>
+              <button type="button" class="drawer-item" data-act="2" role="menuitem">
+                <span class="drawer-act-num">Màn 2</span>
+                <span class="drawer-act-meta">1945 – 1954 • Quyết tử cho Tổ quốc quyết sinh</span>
+              </button>
+              <button type="button" class="drawer-item" data-act="3" role="menuitem">
+                <span class="drawer-act-num">Màn 3</span>
+                <span class="drawer-act-meta">1954 – 1975 • Xẻ dọc Trường Sơn đi cứu nước</span>
+              </button>
+              <button type="button" class="drawer-item" data-act="4" role="menuitem">
+                <span class="drawer-act-num">Màn 4</span>
+                <span class="drawer-act-meta">1975 – Nay • Hồi ức &amp; Cơ đồ hôm nay</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              id="btn-chapter-toggle"
+              class="minimal-bar-btn"
+              aria-expanded="false"
+              aria-controls="chapter-drawer"
+            >
+              [ ☰ Chương / Màn ]
+            </button>
+          </div>
+
+          <button type="button" id="btn-audio" class="minimal-bar-btn" title="Bật / Tắt âm thanh (M)">
+            <span id="audio-label">Âm thanh: Bật</span>
+          </button>
         </div>
       </footer>
     </div>
@@ -218,4 +193,3 @@
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
-
