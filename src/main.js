@@ -20,7 +20,9 @@ const vfx = new VfxSystem(sound);
 const renderer = new WorldRenderer();
 
 // ==================== DOM ELEMENTS ====================
+const orientationOverlay = document.getElementById('orientation-overlay');
 const introOverlay = document.getElementById('intro-overlay');
+const introControlsLine = document.getElementById('intro-controls-line');
 const btnStartGame = document.getElementById('btn-start-game');
 
 const topContextHud = document.getElementById('top-context-hud');
@@ -30,6 +32,12 @@ const contextTitle = document.getElementById('context-title');
 const contextSubtitle = document.getElementById('context-subtitle');
 
 const cinematicCaption = document.getElementById('cinematic-caption');
+
+const touchControls = document.getElementById('touch-controls');
+const virtualJoystick = document.getElementById('virtual-joystick');
+const joystickKnob = document.getElementById('joystick-knob');
+const btnTouchJump = document.getElementById('btn-touch-jump');
+const btnTouchDrop = document.getElementById('btn-touch-drop');
 
 const btnChapterToggle = document.getElementById('btn-chapter-toggle');
 const chapterDrawer = document.getElementById('chapter-drawer');
@@ -52,10 +60,12 @@ const failsafeOverlay = document.getElementById('failsafe-overlay');
 const failsafeText = document.getElementById('failsafe-text');
 
 const incenseHud = document.getElementById('incense-hud');
+const incenseCard = document.getElementById('incense-card');
 const incensePrompt = document.getElementById('incense-prompt');
 const incenseBarFill = document.getElementById('incense-bar-fill');
 const incensePercent = document.getElementById('incense-percent');
 const btnHoldIncense = document.getElementById('btn-hold-incense');
+const incenseBtnLabel = document.getElementById('incense-btn-label');
 
 const storyModal = document.getElementById('story-modal');
 const modalTag = document.getElementById('modal-tag');
@@ -81,10 +91,15 @@ finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
 finaleLessonText.textContent = FINALE_EVENT.lessonText;
 btnReplay.querySelector('span').textContent = FINALE_EVENT.replayButtonLabel;
 
-// ==================== GAME & PHYSICS STATE ====================
+// ==================== DEVICE, VIEWPORT & PHYSICS STATE ====================
 let viewportWidth = window.innerWidth;
 let viewportHeight = window.innerHeight;
+let worldScale = 1.0; // Responsive world zoom scale for low-height mobile landscape screens
 let baseGroundY = Math.round(viewportHeight * 0.8);
+
+let isTouchDevice = false;
+let isMobileMode = false;
+let isPortraitPaused = false;
 
 const GRAVITY = 1580;
 const JUMP_VELOCITY = -625;
@@ -134,7 +149,23 @@ let cameraZoom = 1.0;
 let targetCameraZoom = 1.0;
 
 const keysDown = new Set();
-let mouseHoldingIncense = false;
+const incenseHoldPointers = new Set();
+
+// 360-degree Virtual Analog Joystick state (multi-touch safe via pointerId)
+const joystickState = {
+  active: false,
+  pointerId: null,
+  normX: 0,
+  normY: 0,
+  upLatched: false,
+  downLatched: false,
+  lastJumpAt: 0,
+};
+
+// Auto-run-to-item when player taps a visible artifact slightly farther away on Canvas
+let autoSeekItem = null;
+let autoSeekElapsed = 0;
+let autoSeekJumpCooldown = 0;
 
 let nearbyInteractable = null;
 let nearbyObstacleHint = null;
@@ -159,7 +190,7 @@ let tankProgress = 0;
 // Cinematic Auto-Walk & Generational Handoff State Machine
 const transitionState = {
   active: false,
-  subPhase: null, // 'ENTER_LEFT' | 'WALK_OFF_RIGHT' | 'APPROACH_SUCCESSOR' | 'HANDOFF_CEREMONY' | 'SUCCESSOR_WALK_OFF' | 'WALK_OFF_LEFT' | 'ENTER_FROM_RIGHT' | 'TELEPORT_FADEOUT'
+  subPhase: null,
   targetAct: 1,
   fadeAlpha: 0,
   ceremonyTimer: 0,
@@ -177,7 +208,130 @@ const finaleState = {
   overlayShown: false,
 };
 
-// ==================== TERRAIN & VIEWPORT HELPERS ====================
+// ==================== RESPONSIVE DEVICE, ORIENTATION & CAMERA SCALE ====================
+function detectTouchCapability() {
+  return (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+  );
+}
+
+function formatPromptForDevice(promptText) {
+  if (!isMobileMode) return promptText;
+  return promptText
+    .replace(/\[SPACE\]/g, '[CHẠM]')
+    .replace(/\[F\]/g, '[CHẠM]');
+}
+
+function syncTouchControlsVisibility() {
+  const showCluster =
+    isMobileMode &&
+    gameStarted &&
+    !finaleState.overlayShown &&
+    !isPortraitPaused;
+
+  touchControls.classList.toggle('hidden', !showCluster);
+
+  if (showCluster) {
+    const shouldDim =
+      modalState.open ||
+      Boolean(activeQte) ||
+      transitionState.active ||
+      failSafeActive;
+    touchControls.classList.toggle('soft-dim', shouldDim);
+  }
+}
+
+function resetJoystickVisualAndState() {
+  joystickState.active = false;
+  joystickState.pointerId = null;
+  joystickState.normX = 0;
+  joystickState.normY = 0;
+  joystickState.upLatched = false;
+  joystickState.downLatched = false;
+  joystickKnob.style.transform = 'translate3d(0px, 0px, 0)';
+  virtualJoystick.classList.remove(
+    'active',
+    'tilt-up',
+    'tilt-down',
+    'tilt-left',
+    'tilt-right'
+  );
+}
+
+function updateViewportAndDeviceMode() {
+  const rawW = Math.max(1, window.innerWidth);
+  const rawH = Math.max(1, window.innerHeight);
+
+  isTouchDevice = detectTouchCapability();
+  isMobileMode = isTouchDevice || rawW <= 920 || rawH <= 500;
+  document.body.classList.toggle('touch-mode', isMobileMode);
+
+  // Portrait Lock check: portrait aspect on touch devices or <= 1024px viewports
+  const isPortrait = rawW < rawH;
+  const shouldLockPortrait = isPortrait && (isTouchDevice || rawW <= 1024);
+
+  if (shouldLockPortrait && !isPortraitPaused) {
+    keysDown.clear();
+    incenseHoldPointers.clear();
+    btnHoldIncense.classList.remove('holding');
+    resetJoystickVisualAndState();
+  }
+  isPortraitPaused = shouldLockPortrait;
+  orientationOverlay.classList.toggle('force-visible', isPortraitPaused);
+
+  // Adaptive UI labels for Touch vs PC (keeping PC clean & untouched)
+  if (isMobileMode) {
+    introControlsLine.innerHTML =
+      'Xoay cần gạt <span>Trái / Phải</span> • Gạt lên / <span>▲</span> Nhảy • Gạt xuống / <span>▼</span> Tụt tầng • <span>Chạm</span> vật phẩm để khám phá';
+    incensePrompt.textContent =
+      'Nhấn và giữ biểu tượng nén hương trong 2.5 giây để thắp nén tâm hương tri ân';
+    incenseBtnLabel.innerHTML = 'Nhấn &amp; Giữ dâng hương';
+  } else {
+    introControlsLine.innerHTML =
+      'Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span>';
+    incensePrompt.textContent = FINALE_EVENT.promptText;
+    incenseBtnLabel.innerHTML = 'Giữ <kbd>F</kbd> dâng hương';
+  }
+
+  if (activeQte) {
+    const step = activeQte.zone.steps[activeQte.stepIndex];
+    qtePromptEl.textContent = formatPromptForDevice(step.prompt);
+    qteKeyCap.textContent = isMobileMode ? 'CHẠM!' : step.keyLabel;
+  }
+
+  // Responsive Camera Scale: auto-fit vertical world headroom on low-height mobile landscape (<= 450px..560px)
+  worldScale = rawH < 560 ? Math.max(0.62, Math.min(1.0, rawH / 560)) : 1.0;
+  viewportWidth = Math.ceil(rawW / worldScale);
+  viewportHeight = Math.ceil(rawH / worldScale);
+  baseGroundY = Math.round(viewportHeight * 0.8);
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(rawW * dpr);
+  canvas.height = Math.floor(rawH * dpr);
+  ctx.setTransform(dpr * worldScale, 0, 0, dpr * worldScale, 0, 0);
+
+  player.y = baseGroundY + player.dy;
+  syncTouchControlsVisibility();
+}
+
+window.addEventListener('resize', updateViewportAndDeviceMode);
+window.addEventListener('orientationchange', () => {
+  setTimeout(updateViewportAndDeviceMode, 60);
+});
+// Prevent accidental iOS Safari multi-finger pinch zoom
+document.addEventListener(
+  'gesturestart',
+  (e) => {
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+updateViewportAndDeviceMode();
+
+// ==================== TERRAIN & COORDINATE HELPERS ====================
 function getGroundYForAct(actId, localX) {
   return baseGroundY + sampleGroundOffset(actId, localX);
 }
@@ -186,20 +340,52 @@ function getGroundY(localX) {
   return getGroundYForAct(currentAct, localX);
 }
 
-function updateCanvasSize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  viewportWidth = window.innerWidth;
-  viewportHeight = window.innerHeight;
-  baseGroundY = Math.round(viewportHeight * 0.8);
-
-  canvas.width = Math.floor(viewportWidth * dpr);
-  canvas.height = Math.floor(viewportHeight * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  player.y = baseGroundY + player.dy;
+function getInteractableWorldY(item) {
+  const actCfg = ACTS.find((a) => a.id === item.act) || ACTS[0];
+  if (item.platformId) {
+    const plat = actCfg.platforms.find((p) => p.id === item.platformId);
+    if (plat) return baseGroundY + plat.dy;
+  }
+  return getGroundYForAct(item.act, item.x);
 }
-window.addEventListener('resize', updateCanvasSize);
-updateCanvasSize();
+
+/** Quy đổi tọa độ chạm trên màn hình (clientX, clientY) sang tọa độ thế giới (worldX, worldY) */
+function screenToWorld(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const lx = (clientX - rect.left) / worldScale;
+  const ly = (clientY - rect.top) / worldScale;
+  const cx = viewportWidth * 0.5;
+  const cy = baseGroundY - 65;
+  const unzoomX = (lx - cx) / cameraZoom + cx;
+  const unzoomY = (ly - cy) / cameraZoom + cy;
+  return {
+    worldX: unzoomX + cameraX,
+    worldY: unzoomY,
+  };
+}
+
+function triggerPlayerJump() {
+  if (!gameStarted || modalState.open || activeQte || failSafeActive || transitionState.active) {
+    return;
+  }
+  player.jumpBufferTimer = 0.14;
+}
+
+function triggerPlayerDropThrough() {
+  if (!gameStarted || modalState.open || activeQte || failSafeActive || transitionState.active) {
+    return;
+  }
+  if (player.onGround && player.currentPlatformId !== null) {
+    player.ignoredPlatformId = player.currentPlatformId;
+    player.dropThroughTimer = 0.28;
+    player.currentPlatformId = null;
+    player.onGround = false;
+    player.vy = 115;
+  } else if (player.onGround) {
+    // Subtle crouch feedback even on solid ground
+    player.landingSquash = Math.max(player.landingSquash, 0.42);
+  }
+}
 
 // ==================== TOP HUD & CAPTION HELPERS ====================
 function triggerActTopHudIntro(actId, initialX = 180) {
@@ -212,7 +398,6 @@ function triggerActTopHudIntro(actId, initialX = 180) {
   topContextHud.classList.remove('hidden', 'docked');
 
   if (topHudDockTimer) clearTimeout(topHudDockTimer);
-  // Sau 3.5 giây: tiêu đề lớn mờ dần, mốc thời gian & địa điểm thu nhỏ scale(0.85) và opacity 0.55 cố định góc trên
   topHudDockTimer = setTimeout(() => {
     topContextHud.classList.add('docked');
   }, 3500);
@@ -248,7 +433,17 @@ function hideCinematicCaption() {
   cinematicCaption.classList.add('hidden');
 }
 
-// ==================== STORY MODAL (TYPEWRITER) ====================
+// ==================== STORY MODAL (TYPEWRITER & TOUCH SKIP/CLOSE) ====================
+function openInteractableModal(item) {
+  item.visited = true;
+  autoSeekItem = null;
+  openStoryModal({
+    tag: `${ACTS[item.act - 1].period} • ${item.tag}`,
+    title: item.title,
+    content: item.content,
+  });
+}
+
 function openStoryModal({ tag, title, content, note = null }) {
   if (modalState.timerId) clearInterval(modalState.timerId);
 
@@ -271,13 +466,17 @@ function openStoryModal({ tag, title, content, note = null }) {
     modalNote.classList.add('hidden');
   }
 
-  modalHint.innerHTML = 'Ấn <kbd>SPACE</kbd> hiện toàn bộ • Ấn <kbd>E</kbd> để đóng và đi tiếp';
+  modalHint.innerHTML = isMobileMode
+    ? 'Chạm vào hộp thoại để hiện nhanh toàn bộ nội dung'
+    : 'Ấn <kbd>SPACE</kbd> hiện toàn bộ • Ấn <kbd>E</kbd> để đóng và đi tiếp';
 
   canvas.classList.add('canvas-blurred');
   storyModal.classList.remove('hidden');
+  syncTouchControlsVisibility();
   sound.playModalOpen();
 
   modalState.timerId = setInterval(() => {
+    if (isPortraitPaused) return;
     if (modalState.charIndex < modalState.fullText.length) {
       modalState.charIndex = Math.min(modalState.fullText.length, modalState.charIndex + 2);
       modalText.textContent = modalState.fullText.slice(0, modalState.charIndex);
@@ -297,7 +496,9 @@ function finishTypewriterImmediately() {
   modalState.typingDone = true;
   modalText.textContent = modalState.fullText;
   modalText.classList.remove('typing');
-  modalHint.innerHTML = 'Ấn <kbd>E</kbd> hoặc <kbd>SPACE</kbd> để đóng và đi tiếp';
+  modalHint.innerHTML = isMobileMode
+    ? 'Chạm lần nữa hoặc ấn "Tiếp tục hành trình" để đi tiếp'
+    : 'Ấn <kbd>E</kbd> hoặc <kbd>SPACE</kbd> để đóng và đi tiếp';
 }
 
 function closeStoryModal() {
@@ -309,10 +510,12 @@ function closeStoryModal() {
   modalState.open = false;
   storyModal.classList.add('hidden');
   canvas.classList.remove('canvas-blurred');
+  syncTouchControlsVisibility();
 }
 
 // ==================== QTE SLOW-MOTION ENGINE ====================
 function startQte(zone) {
+  autoSeekItem = null;
   activeQte = {
     id: zone.id,
     x: zone.x,
@@ -334,6 +537,7 @@ function startQte(zone) {
   sound.playSlowMoEnter();
 
   qteOverlay.classList.remove('hidden');
+  syncTouchControlsVisibility();
   setupCurrentQteStep();
 }
 
@@ -344,8 +548,8 @@ function setupCurrentQteStep() {
   activeQte.mashCount = 0;
 
   qteTitleEl.textContent = activeQte.zone.title;
-  qtePromptEl.textContent = step.prompt;
-  qteKeyCap.textContent = step.keyLabel;
+  qtePromptEl.textContent = formatPromptForDevice(step.prompt);
+  qteKeyCap.textContent = isMobileMode ? 'CHẠM!' : step.keyLabel;
 
   if (step.mode === 'timing') {
     qteShrinkingRing.classList.remove('hidden');
@@ -373,6 +577,8 @@ function updateActiveQte(rawDt) {
   const step = activeQte.zone.steps[activeQte.stepIndex];
   activeQte.stepElapsed += rawDt;
 
+  const actionLabel = isMobileMode ? 'CHẠM!' : step.keyLabel;
+
   if (step.mode === 'timing') {
     const progress = activeQte.stepElapsed / step.duration;
     if (progress >= 1.0) {
@@ -386,11 +592,15 @@ function updateActiveQte(rawDt) {
     const inSweet = progress >= step.sweetSpotStart && progress <= step.sweetSpotEnd;
     qteTargetZone.classList.toggle('in-sweet-spot', inSweet);
     qteSubstatus.textContent = inSweet
-      ? `Bấm [${step.keyLabel}] ngay!`
+      ? isMobileMode
+        ? 'Chạm vào vòng tròn ngay!'
+        : `Bấm [${actionLabel}] ngay!`
       : 'Canh vòng sáng chạm viền vàng...';
   } else if (step.mode === 'mash') {
     const remaining = Math.max(0, step.duration - activeQte.stepElapsed);
-    qteSubstatus.textContent = `Nhấp [${step.keyLabel}]: ${activeQte.mashCount} / ${step.targetCount} (${remaining.toFixed(1)}s)`;
+    qteSubstatus.textContent = isMobileMode
+      ? `Chạm liên hoàn: ${activeQte.mashCount} / ${step.targetCount} (${remaining.toFixed(1)}s)`
+      : `Nhấp [${actionLabel}]: ${activeQte.mashCount} / ${step.targetCount} (${remaining.toFixed(1)}s)`;
     if (activeQte.stepElapsed >= step.duration) {
       triggerQteFailSafe();
     }
@@ -398,10 +608,11 @@ function updateActiveQte(rawDt) {
 }
 
 function handleQteActionInput(inputCode) {
-  if (!activeQte) return;
+  if (!activeQte || isPortraitPaused) return;
   const step = activeQte.zone.steps[activeQte.stepIndex];
 
   const matchesKey =
+    inputCode === 'TOUCH' ||
     inputCode === 'CLICK' ||
     (step.key === 'SPACE' && inputCode === 'Space') ||
     (step.key === 'KeyF' && inputCode === 'KeyF');
@@ -486,6 +697,7 @@ function completeActiveQte() {
   qteOverlay.classList.add('hidden');
   vfx.setSlowMotion(false);
   targetCameraZoom = 1.0;
+  syncTouchControlsVisibility();
 
   switch (finishedZone.rewardEffect) {
     case 'grain_burst': {
@@ -592,11 +804,13 @@ function triggerQteFailSafe() {
 
   failSafeActive = true;
   failsafeOverlay.classList.remove('hidden');
+  syncTouchControlsVisibility();
 
   if (failSafeTimer) clearTimeout(failSafeTimer);
   failSafeTimer = setTimeout(() => {
     failSafeActive = false;
     failsafeOverlay.classList.add('hidden');
+    syncTouchControlsVisibility();
   }, 1500);
 }
 
@@ -613,10 +827,14 @@ function clearTransientOverlays() {
   failSafeActive = false;
   failsafeOverlay.classList.add('hidden');
 
+  autoSeekItem = null;
   activeQte = null;
   qteOverlay.classList.add('hidden');
   vfx.setSlowMotion(false);
   targetCameraZoom = 1.0;
+
+  incenseHoldPointers.clear();
+  btnHoldIncense.classList.remove('holding');
 
   closeStoryModal();
   closeChapterDrawer();
@@ -624,11 +842,13 @@ function clearTransientOverlays() {
   incenseHud.classList.add('hidden');
   finaleOverlay.classList.add('hidden');
   sound.updateIncenseCharge(0, false);
+  syncTouchControlsVisibility();
 }
 
-/** Khởi tạo Màn mới và cho nhân vật Auto-Walk từ rìa trái (-45 -> 180) */
+/** Khởi tạo Màn mới và cho nhân vật Auto-Walk từ rìa trái (-40 -> 180) */
 function beginActFromLeft(actId) {
   currentAct = actId;
+  autoSeekItem = null;
   updateDrawerActiveState(actId);
   vfx.clearSceneParticles();
   renderer.resetScarfTrail();
@@ -646,12 +866,14 @@ function beginActFromLeft(actId) {
   transitionState.subPhase = 'ENTER_LEFT';
   transitionState.targetAct = actId;
 
+  syncTouchControlsVisibility();
   triggerActTopHudIntro(actId, WORLD_CONFIG.enterTargetX);
 }
 
 /** Khởi tạo cuối Màn trước khi đi lùi và Auto-Walk từ rìa phải (3040 -> 2750) */
 function beginActFromRight(actId) {
   currentAct = actId;
+  autoSeekItem = null;
   updateDrawerActiveState(actId);
   vfx.clearSceneParticles();
   renderer.resetScarfTrail();
@@ -669,15 +891,16 @@ function beginActFromRight(actId) {
   transitionState.subPhase = 'ENTER_FROM_RIGHT';
   transitionState.targetAct = actId;
 
+  syncTouchControlsVisibility();
   triggerActTopHudIntro(actId, WORLD_CONFIG.backReturnTargetX);
 }
 
-/** Bắt đầu chuỗi chuyển màn tiến về phía phải (khi người chơi ấn D qua localX >= 2820) */
+/** Bắt đầu chuỗi chuyển màn tiến về phía phải (khi người chơi đi qua localX >= 2820) */
 function startForwardActTransition() {
   const actCfg = ACTS.find((a) => a.id === currentAct);
   if (!actCfg || currentAct >= 4) return;
 
-  // Put player cleanly on terrain floor for smooth cinematic walk
+  autoSeekItem = null;
   player.currentPlatformId = null;
   player.onGround = true;
   player.vy = 0;
@@ -697,12 +920,14 @@ function startForwardActTransition() {
   } else {
     transitionState.subPhase = 'WALK_OFF_RIGHT';
   }
+  syncTouchControlsVisibility();
 }
 
-/** Bắt đầu chuỗi chuyển màn lùi về phía trái (khi ấn A lùi qua localX < 80 ở Màn 2, 3, 4) */
+/** Bắt đầu chuỗi chuyển màn lùi về phía trái (khi lùi qua localX < 80 ở Màn 2, 3, 4) */
 function startBackwardActTransition() {
   if (currentAct <= 1) return;
 
+  autoSeekItem = null;
   player.currentPlatformId = null;
   player.onGround = true;
   player.vy = 0;
@@ -714,6 +939,7 @@ function startBackwardActTransition() {
   transitionState.active = true;
   transitionState.subPhase = 'WALK_OFF_LEFT';
   transitionState.targetAct = currentAct - 1;
+  syncTouchControlsVisibility();
 }
 
 /** Chọn nhảy nhanh tới Màn từ Pop-up Menu [ ☰ Chương / Màn ] */
@@ -721,7 +947,6 @@ function jumpToChapterFromMenu(actNumber) {
   sound.init();
   clearTransientOverlays();
 
-  // Đánh dấu hoàn thành các màn trước đó và làm mới các QTE từ màn được chọn trở đi để thuyết trình mượt mà
   QTE_ZONES.forEach((q) => {
     if (q.act < actNumber) {
       completedQtes.add(q.id);
@@ -745,13 +970,17 @@ function jumpToChapterFromMenu(actNumber) {
   transitionState.active = true;
   transitionState.subPhase = 'TELEPORT_FADEOUT';
   transitionState.targetAct = actNumber;
+  syncTouchControlsVisibility();
 }
 
 function advanceAutoWalk(dt, dir, speed = AUTO_WALK_SPEED) {
   player.facing = dir;
   player.vx = dir * speed;
   player.x += player.vx * dt;
-  player.dy = sampleGroundOffset(currentAct, Math.max(0, Math.min(WORLD_CONFIG.actWidth, player.x)));
+  player.dy = sampleGroundOffset(
+    currentAct,
+    Math.max(0, Math.min(WORLD_CONFIG.actWidth, player.x))
+  );
   player.y = baseGroundY + player.dy;
   player.onGround = true;
 
@@ -776,6 +1005,7 @@ function updateCinematicTransition(rawDt) {
           transitionState.fadeAlpha = 0;
           transitionState.active = false;
           transitionState.subPhase = null;
+          syncTouchControlsVisibility();
         }
       }
       break;
@@ -821,7 +1051,6 @@ function updateCinematicTransition(rawDt) {
       );
 
       if (currentAct === 2) {
-        // Người Ông trao chiếc mũ cho Người Cha trong 2.5 giây
         player.pose = 'handoff_give';
         player.poseTimer = transitionState.ceremonyProgress;
         if (transitionState.ceremonyProgress >= 0.55 && !transitionState.hatSparkSpawned) {
@@ -830,13 +1059,11 @@ function updateCinematicTransition(rawDt) {
           vfx.spawnCelebrationBurst(2842, player.y - 72, 22);
         }
       } else if (currentAct === 3) {
-        // Khói lửa chiến trường tan thành hạt sáng bình minh bên cạnh Người Cháu
         vfx.spawnDawnTransformation(2840, player.y);
       }
 
       if (transitionState.ceremonyTimer >= transitionState.ceremonyDuration) {
         hideCinematicCaption();
-        // Thế hệ kế tiếp bước tiếp qua rìa phải màn hình (localX > 3050)
         player.x = WORLD_CONFIG.successorWaitX;
         player.costumeOverride = currentAct + 1;
         player.wearingHat = true;
@@ -884,6 +1111,7 @@ function updateCinematicTransition(rawDt) {
           transitionState.fadeAlpha = 0;
           transitionState.active = false;
           transitionState.subPhase = null;
+          syncTouchControlsVisibility();
         }
       }
       break;
@@ -909,9 +1137,132 @@ function replayFromBeginning() {
   jumpToChapterFromMenu(1);
 }
 
-// ==================== INPUT LISTENERS ====================
+// ==================== MULTI-TOUCH VIRTUAL JOYSTICK & QUICK BUTTONS ====================
+function updateJoystickFromPointer(clientX, clientY) {
+  const rect = virtualJoystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width * 0.5;
+  const centerY = rect.top + rect.height * 0.5;
+  const maxRadius = Math.max(28, rect.width * 0.37);
+
+  const rawDx = clientX - centerX;
+  const rawDy = clientY - centerY;
+  const dist = Math.hypot(rawDx, rawDy);
+  const clampedDist = Math.min(dist, maxRadius);
+  const angle = Math.atan2(rawDy, rawDx);
+
+  const dx = dist > 0.001 ? Math.cos(angle) * clampedDist : 0;
+  const dy = dist > 0.001 ? Math.sin(angle) * clampedDist : 0;
+
+  joystickKnob.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0)`;
+
+  const nx = dx / maxRadius;
+  const ny = dy / maxRadius;
+  joystickState.normX = nx;
+  joystickState.normY = ny;
+
+  virtualJoystick.classList.toggle('tilt-left', nx < -0.24);
+  virtualJoystick.classList.toggle('tilt-right', nx > 0.24);
+  virtualJoystick.classList.toggle('tilt-up', ny < -0.48);
+  virtualJoystick.classList.toggle('tilt-down', ny > 0.48);
+
+  if (Math.abs(nx) > 0.2 || Math.abs(ny) > 0.2) {
+    autoSeekItem = null;
+  }
+
+  // Flick Up (dy < -threshold) -> Trigger Jump (with clean debounce per flick)
+  if (ny < -0.52) {
+    if (!joystickState.upLatched) {
+      joystickState.upLatched = true;
+      const now = performance.now();
+      if (now - joystickState.lastJumpAt > 200) {
+        joystickState.lastJumpAt = now;
+        triggerPlayerJump();
+      }
+    }
+  } else if (ny > -0.26) {
+    joystickState.upLatched = false;
+  }
+
+  // Flick Down (dy > threshold) -> Trigger Drop-through Platform (with clean debounce)
+  if (ny > 0.54) {
+    if (!joystickState.downLatched) {
+      joystickState.downLatched = true;
+      triggerPlayerDropThrough();
+    }
+  } else if (ny < 0.26) {
+    joystickState.downLatched = false;
+  }
+}
+
+virtualJoystick.addEventListener('pointerdown', (e) => {
+  if (joystickState.active || isPortraitPaused) return;
+  e.preventDefault();
+  e.stopPropagation();
+  sound.init();
+
+  joystickState.active = true;
+  joystickState.pointerId = e.pointerId;
+  virtualJoystick.classList.add('active');
+  try {
+    virtualJoystick.setPointerCapture(e.pointerId);
+  } catch {
+    // Ignore if synthetic event does not support pointer capture
+  }
+  updateJoystickFromPointer(e.clientX, e.clientY);
+});
+
+virtualJoystick.addEventListener('pointermove', (e) => {
+  if (!joystickState.active || e.pointerId !== joystickState.pointerId) return;
+  e.preventDefault();
+  updateJoystickFromPointer(e.clientX, e.clientY);
+});
+
+function handleJoystickPointerEnd(e) {
+  if (!joystickState.active || e.pointerId !== joystickState.pointerId) return;
+  resetJoystickVisualAndState();
+}
+
+virtualJoystick.addEventListener('pointerup', handleJoystickPointerEnd);
+virtualJoystick.addEventListener('pointercancel', handleJoystickPointerEnd);
+
+// Right-hand Quick Jump (▲) & Quick Drop-through (▼) buttons (multi-touch parallel with left Joystick)
+btnTouchJump.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  sound.init();
+  btnTouchJump.classList.add('pressed');
+  autoSeekItem = null;
+  if (activeQte) {
+    handleQteActionInput('TOUCH');
+  } else {
+    triggerPlayerJump();
+  }
+});
+
+btnTouchJump.addEventListener('pointerup', () => btnTouchJump.classList.remove('pressed'));
+btnTouchJump.addEventListener('pointercancel', () => btnTouchJump.classList.remove('pressed'));
+btnTouchJump.addEventListener('pointerleave', () => btnTouchJump.classList.remove('pressed'));
+
+btnTouchDrop.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  sound.init();
+  btnTouchDrop.classList.add('pressed');
+  autoSeekItem = null;
+  if (activeQte) {
+    handleQteActionInput('TOUCH');
+  } else {
+    triggerPlayerDropThrough();
+  }
+});
+
+btnTouchDrop.addEventListener('pointerup', () => btnTouchDrop.classList.remove('pressed'));
+btnTouchDrop.addEventListener('pointercancel', () => btnTouchDrop.classList.remove('pressed'));
+btnTouchDrop.addEventListener('pointerleave', () => btnTouchDrop.classList.remove('pressed'));
+
+// ==================== UI & DIRECT CANVAS TOUCH LISTENERS ====================
 async function startGameExperience() {
-  if (gameStarted) return;
+  if (gameStarted || isPortraitPaused) return;
   gameStarted = true;
   await sound.init();
 
@@ -922,6 +1273,7 @@ async function startGameExperience() {
 
   transitionState.fadeAlpha = 1;
   beginActFromLeft(1);
+  syncTouchControlsVisibility();
 }
 
 btnStartGame.addEventListener('click', startGameExperience);
@@ -952,7 +1304,7 @@ drawerItems.forEach((btn) => {
   });
 });
 
-document.addEventListener('click', (e) => {
+document.addEventListener('pointerdown', (e) => {
   if (!chapterDrawer.classList.contains('hidden')) {
     if (!chapterDrawer.contains(e.target) && e.target !== btnChapterToggle) {
       closeChapterDrawer();
@@ -966,54 +1318,180 @@ btnAudio.addEventListener('click', async () => {
   audioLabel.textContent = isMuted ? 'Âm thanh: Tắt' : 'Âm thanh: Bật';
 });
 
-btnCloseModal.addEventListener('click', closeStoryModal);
-storyModal.addEventListener('click', (e) => {
-  if (e.target === storyModal) closeStoryModal();
+// Story Modal Touch & Click: Tap anywhere on card to Skip Typewriter -> Tap again (or button) to Close
+let modalPointerDownPos = null;
+
+btnCloseModal.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeStoryModal();
 });
 
+storyModal.addEventListener('pointerdown', (e) => {
+  if (btnCloseModal.contains(e.target)) return;
+  modalPointerDownPos = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+});
+
+storyModal.addEventListener('pointerup', (e) => {
+  if (!modalState.open || btnCloseModal.contains(e.target)) return;
+  if (!modalPointerDownPos || modalPointerDownPos.pointerId !== e.pointerId) return;
+
+  const movedDist = Math.hypot(
+    e.clientX - modalPointerDownPos.x,
+    e.clientY - modalPointerDownPos.y
+  );
+  modalPointerDownPos = null;
+
+  // Ignore if user dragged vertically to scroll long text or if modal just opened
+  if (movedDist > 14 || performance.now() - modalState.openedAt < 180) return;
+
+  if (!modalState.typingDone) {
+    finishTypewriterImmediately();
+  } else {
+    closeStoryModal();
+  }
+});
+
+// Direct QTE Touch: Tap directly on QTE Ring OR anywhere on right half of screen
 qteRingStage.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  handleQteActionInput('CLICK');
+  e.stopPropagation();
+  sound.init();
+  handleQteActionInput('TOUCH');
 });
 
-btnHoldIncense.addEventListener('pointerdown', (e) => {
+qteOverlay.addEventListener('pointerdown', (e) => {
+  if (qteRingStage.contains(e.target)) return;
+  if (e.clientX >= window.innerWidth * 0.42) {
+    e.preventDefault();
+    e.stopPropagation();
+    sound.init();
+    handleQteActionInput('TOUCH');
+  }
+});
+
+// Finale Monument Touch & Hold (2.5s) on Incense Card / Button
+function startHoldingIncensePointer(pointerId) {
+  incenseHoldPointers.add(pointerId);
+  btnHoldIncense.classList.add('holding');
+}
+
+function stopHoldingIncensePointer(pointerId) {
+  incenseHoldPointers.delete(pointerId);
+  if (incenseHoldPointers.size === 0) {
+    btnHoldIncense.classList.remove('holding');
+  }
+}
+
+incenseCard.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  mouseHoldingIncense = true;
+  e.stopPropagation();
+  sound.init();
+  startHoldingIncensePointer(e.pointerId);
 });
-window.addEventListener('pointerup', () => {
-  mouseHoldingIncense = false;
+
+window.addEventListener('pointerup', (e) => {
+  stopHoldingIncensePointer(e.pointerId);
+  if (joystickState.active && e.pointerId === joystickState.pointerId) {
+    resetJoystickVisualAndState();
+  }
 });
-window.addEventListener('pointercancel', () => {
-  mouseHoldingIncense = false;
+
+window.addEventListener('pointercancel', (e) => {
+  stopHoldingIncensePointer(e.pointerId);
+  if (joystickState.active && e.pointerId === joystickState.pointerId) {
+    resetJoystickVisualAndState();
+  }
 });
 
 btnReplay.addEventListener('click', replayFromBeginning);
 
-// Click on nearby artifact on canvas
-canvas.addEventListener('click', (e) => {
-  if (!gameStarted || modalState.open || activeQte || failSafeActive || transitionState.active) {
+// Direct Canvas Touch:
+// 1) During QTE -> tapping right half of screen triggers QTE action
+// 2) At Act 4 Monument -> Touch & Hold directly on Incense Altar / Monument charges incense
+// 3) Tapping an Interactable / [Chạm] Khám phá -> opens immediately if < 120px, or auto-runs to item & opens!
+canvas.addEventListener('pointerdown', (e) => {
+  if (!gameStarted || isPortraitPaused) return;
+  sound.init();
+
+  if (activeQte) {
+    if (e.clientX >= window.innerWidth * 0.42) {
+      e.preventDefault();
+      handleQteActionInput('TOUCH');
+    }
     return;
   }
-  const rect = canvas.getBoundingClientRect();
-  const clickWorldX = e.clientX - rect.left + cameraX;
-  const clickedItem = interactablesState.find(
-    (it) =>
-      it.act === currentAct &&
-      Math.abs(it.x - clickWorldX) < 52 &&
-      nearbyInteractable &&
-      nearbyInteractable.id === it.id
-  );
-  if (clickedItem) {
-    clickedItem.visited = true;
-    openStoryModal({
-      tag: `${ACTS[clickedItem.act - 1].period} • ${clickedItem.tag}`,
-      title: clickedItem.title,
-      content: clickedItem.content,
-    });
+
+  if (modalState.open || failSafeActive || transitionState.active || finaleState.overlayShown) {
+    return;
+  }
+
+  const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+
+  // Check Direct Touch & Hold on Act 4 Monument / Incense Burner
+  if (currentAct === 4 && !finaleState.completed) {
+    const altarWorldX = FINALE_EVENT.x - 45;
+    const monumentGroundY = getGroundY(FINALE_EVENT.x);
+    if (
+      Math.abs(worldX - altarWorldX) <= 135 &&
+      worldY >= monumentGroundY - 280 &&
+      worldY <= monumentGroundY + 35
+    ) {
+      e.preventDefault();
+      autoSeekItem = null;
+      startHoldingIncensePointer(e.pointerId);
+      return;
+    }
+  }
+
+  // Check Direct Touch on visible Interactables & floating [Chạm] Khám phá label
+  let tappedItem = null;
+  let bestDist = Infinity;
+
+  for (const it of interactablesState) {
+    if (it.act !== currentAct) continue;
+    const screenX = it.x - cameraX;
+    if (screenX < -60 || screenX > viewportWidth + 60) continue;
+
+    const itemY = getInteractableWorldY(it);
+    const isCurrentlyNearby = nearbyInteractable && nearbyInteractable.id === it.id;
+    const halfWidth = isCurrentlyNearby ? 86 : 64;
+    const topBound = isCurrentlyNearby ? itemY - 112 : itemY - 82;
+    const botBound = itemY + 32;
+
+    if (
+      Math.abs(worldX - it.x) <= halfWidth &&
+      worldY >= topBound &&
+      worldY <= botBound
+    ) {
+      const d = Math.hypot(worldX - it.x, worldY - (itemY - 34));
+      if (d < bestDist) {
+        bestDist = d;
+        tappedItem = it;
+      }
+    }
+  }
+
+  if (tappedItem) {
+    e.preventDefault();
+    const itemY = getInteractableWorldY(tappedItem);
+    const dxToPlayer = Math.abs(player.x - tappedItem.x);
+    const dyToPlayer = Math.abs(player.y - itemY);
+
+    if (dxToPlayer < 120 && dyToPlayer < 96) {
+      openInteractableModal(tappedItem);
+    } else {
+      // Player is farther away -> auto-run toward the tapped visible artifact and auto-open!
+      autoSeekItem = tappedItem;
+      autoSeekElapsed = 0;
+      autoSeekJumpCooldown = 0;
+    }
   }
 });
 
+// ==================== KEYBOARD LISTENERS (PC UNCHANGED) ====================
 window.addEventListener('keydown', (e) => {
+  if (isPortraitPaused) return;
+
   if (!gameStarted) {
     if (e.code === 'Enter' || e.code === 'Space') {
       e.preventDefault();
@@ -1036,7 +1514,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Modal controls
   if (modalState.open) {
     if (e.code === 'Space') {
       e.preventDefault();
@@ -1054,7 +1531,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Finale screen
   if (finaleState.overlayShown) {
     if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
       e.preventDefault();
@@ -1063,7 +1539,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Active QTE
   if (activeQte) {
     if ((e.code === 'Space' || e.code === 'KeyF') && !e.repeat) {
       e.preventDefault();
@@ -1072,37 +1547,24 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Block gameplay keys during cinematic auto-walk transition
   if (transitionState.active) return;
 
-  // Interactable [E]
   if (e.code === 'KeyE' && !e.repeat && !failSafeActive && nearbyInteractable) {
     e.preventDefault();
-    nearbyInteractable.visited = true;
-    openStoryModal({
-      tag: `${ACTS[nearbyInteractable.act - 1].period} • ${nearbyInteractable.tag}`,
-      title: nearbyInteractable.title,
-      content: nearbyInteractable.content,
-    });
+    openInteractableModal(nearbyInteractable);
     return;
   }
 
-  // Jump [W] or [ArrowUp]
   if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !e.repeat) {
     e.preventDefault();
-    player.jumpBufferTimer = 0.13;
+    autoSeekItem = null;
+    triggerPlayerJump();
   }
 
-  // Drop-through platform [S] or [ArrowDown]
   if ((e.code === 'KeyS' || e.code === 'ArrowDown') && !e.repeat) {
     e.preventDefault();
-    if (player.onGround && player.currentPlatformId !== null) {
-      player.ignoredPlatformId = player.currentPlatformId;
-      player.dropThroughTimer = 0.28;
-      player.currentPlatformId = null;
-      player.onGround = false;
-      player.vy = 115;
-    }
+    autoSeekItem = null;
+    triggerPlayerDropThrough();
   }
 
   if (
@@ -1118,6 +1580,14 @@ window.addEventListener('keydown', (e) => {
     e.code === 'KeyF'
   ) {
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+    if (
+      e.code === 'KeyA' ||
+      e.code === 'KeyD' ||
+      e.code === 'ArrowLeft' ||
+      e.code === 'ArrowRight'
+    ) {
+      autoSeekItem = null;
+    }
     keysDown.add(e.code);
   }
 });
@@ -1128,7 +1598,9 @@ window.addEventListener('keyup', (e) => {
 
 window.addEventListener('blur', () => {
   keysDown.clear();
-  mouseHoldingIncense = false;
+  incenseHoldPointers.clear();
+  btnHoldIncense.classList.remove('holding');
+  resetJoystickVisualAndState();
 });
 
 // ==================== 2D PLATFORMER PHYSICS STEP ====================
@@ -1156,12 +1628,95 @@ function updatePlatformerPhysics(rawDt) {
     player.landingSquash = Math.max(0, player.landingSquash - rawDt * 5.8);
   }
 
-  // Execute Jump if buffered & within coyote ground grace
   const holdingIncenseNow =
     currentAct === 4 &&
     Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius &&
-    (keysDown.has('KeyF') || mouseHoldingIncense);
+    (keysDown.has('KeyF') || incenseHoldPointers.size > 0);
 
+  // Horizontal movement: Keyboard (A/D) + Virtual Analog Joystick (dx) + Auto-Seek Item
+  const keyLeft = keysDown.has('KeyA') || keysDown.has('ArrowLeft');
+  const keyRight = keysDown.has('KeyD') || keysDown.has('ArrowRight');
+  const joyX = joystickState.active ? joystickState.normX : 0;
+
+  let moveLeft = keyLeft || joyX < -0.22;
+  let moveRight = keyRight || joyX > 0.22;
+  let analogScale = 1.0;
+
+  if (!keyLeft && !keyRight && Math.abs(joyX) > 0.22) {
+    analogScale = Math.min(1.0, (Math.abs(joyX) - 0.18) / 0.55);
+  }
+
+  // If user touches & holds Monument Altar from slightly farther away in Act 4, auto-walk into incense range
+  if (
+    currentAct === 4 &&
+    !finaleState.completed &&
+    incenseHoldPointers.size > 0 &&
+    !holdingIncenseNow
+  ) {
+    const dxAltar = FINALE_EVENT.x - 65 - player.x;
+    moveLeft = dxAltar < -8;
+    moveRight = dxAltar > 8;
+    analogScale = 1.0;
+  }
+
+  // Handle Auto-Run toward a tapped distant visible Interactable
+  if (autoSeekItem) {
+    if (autoSeekItem.act !== currentAct || holdingIncenseNow) {
+      autoSeekItem = null;
+    } else {
+      autoSeekElapsed += rawDt;
+      autoSeekJumpCooldown = Math.max(0, autoSeekJumpCooldown - rawDt);
+
+      const targetY = getInteractableWorldY(autoSeekItem);
+      const dx = autoSeekItem.x - player.x;
+      const dy = player.y - targetY;
+
+      if (Math.abs(dx) < 88 && Math.abs(dy) < 90) {
+        const reached = autoSeekItem;
+        autoSeekItem = null;
+        player.vx = 0;
+        openInteractableModal(reached);
+        return;
+      } else if (autoSeekElapsed > 4.6) {
+        autoSeekItem = null;
+      } else {
+        moveLeft = dx < -10;
+        moveRight = dx > 10;
+        analogScale = 1.0;
+
+        // Smart auto-jump over low obstacles or onto elevated platforms along the path
+        if (player.onGround && autoSeekJumpCooldown <= 0) {
+          const dir = dx >= 0 ? 1 : -1;
+          const blockedByObstacle = actCfg.obstacles.some(
+            (obs) =>
+              player.dy > obs.dy + 8 &&
+              ((dir > 0 && player.x >= obs.x1 - 42 && player.x <= obs.x1) ||
+                (dir < 0 && player.x <= obs.x2 + 42 && player.x >= obs.x2))
+          );
+
+          const nextStepPlatform =
+            dy > 26 &&
+            actCfg.platforms.some(
+              (p) =>
+                p.dy < player.dy - 14 &&
+                p.dy >= player.dy - 125 &&
+                ((dir > 0 && player.x >= p.x1 - 55 && player.x <= p.x2) ||
+                  (dir < 0 && player.x <= p.x2 + 55 && player.x >= p.x1))
+            );
+
+          if (blockedByObstacle || nextStepPlatform) {
+            player.jumpBufferTimer = 0.12;
+            autoSeekJumpCooldown = 0.42;
+          } else if (dy < -32 && player.currentPlatformId !== null && Math.abs(dx) < 120) {
+            triggerPlayerDropThrough();
+            autoSeekJumpCooldown = 0.35;
+          }
+        }
+      }
+    }
+  }
+
+  // Execute Jump if buffered & within coyote ground grace
   if (player.jumpBufferTimer > 0 && player.coyoteTimer > 0 && !holdingIncenseNow) {
     player.vy = JUMP_VELOCITY;
     player.onGround = false;
@@ -1171,15 +1726,13 @@ function updatePlatformerPhysics(rawDt) {
     sound.playJump();
   }
 
-  // Horizontal movement (A/D or Left/Right)
-  const moveLeft = keysDown.has('KeyA') || keysDown.has('ArrowLeft');
-  const moveRight = keysDown.has('KeyD') || keysDown.has('ArrowRight');
   const inputDir = (moveRight ? 1 : 0) - (moveLeft ? 1 : 0);
+  const effectiveMaxSpeed = player.maxSpeed * analogScale;
 
   if (inputDir !== 0 && !holdingIncenseNow) {
     player.facing = inputDir;
     player.vx += inputDir * player.accel * rawDt;
-    player.vx = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vx));
+    player.vx = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, player.vx));
   } else {
     if (Math.abs(player.vx) <= player.friction * rawDt) {
       player.vx = 0;
@@ -1192,7 +1745,7 @@ function updatePlatformerPhysics(rawDt) {
   const prevDy = player.dy;
   player.x += player.vx * rawDt;
 
-  // Solid low obstacles check (e.g. Hanoi barricade & Trường Sơn fallen log -> prompts [W] jump!)
+  // Solid low obstacles check
   nearbyObstacleHint = null;
   for (const obs of actCfg.obstacles) {
     if (Math.abs(player.x - (obs.x1 + obs.x2) * 0.5) < 95 && player.dy > obs.dy + 8) {
@@ -1214,14 +1767,12 @@ function updatePlatformerPhysics(rawDt) {
     if (player.currentPlatformId) {
       const plat = actCfg.platforms.find((p) => p.id === player.currentPlatformId);
       if (!plat || player.x < plat.x1 - 11 || player.x > plat.x2 + 11) {
-        // Walked off platform edge
         player.onGround = false;
         player.currentPlatformId = null;
       } else {
         player.dy = plat.dy;
       }
     } else {
-      // Stick smoothly to continuous sloped/sunken terrain
       player.dy = sampleGroundOffset(currentAct, player.x);
     }
   }
@@ -1278,7 +1829,6 @@ function updatePlatformerPhysics(rawDt) {
     player.vx = 0;
   } else if (currentAct > 1 && player.x < WORLD_CONFIG.backTriggerX) {
     if ((moveLeft || player.vx < -15) && !modalState.open && !pendingMilestoneTimer) {
-      // Đi ngược về Màn cũ (localX < 80 khi đang lùi trái)
       startBackwardActTransition();
       return;
     }
@@ -1287,7 +1837,6 @@ function updatePlatformerPhysics(rawDt) {
   }
 
   if (currentAct < 4 && player.x >= WORLD_CONFIG.exitTriggerX) {
-    // Kiểm tra đã hoàn thành QTE nhiệm vụ lịch sử của màn chưa
     const actQtes = QTE_ZONES.filter((q) => q.act === currentAct);
     const allCompleted = actQtes.every((q) => completedQtes.has(q.id));
     if (!allCompleted) {
@@ -1335,6 +1884,12 @@ function gameLoop(now) {
   const rawDt = Math.min(0.05, Math.max(0.001, (now - lastFrameTime) / 1000));
   lastFrameTime = now;
 
+  // Pause game update loop cleanly when mobile device is held in Portrait orientation
+  if (isPortraitPaused) {
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
   const scaledDt = vfx.update(rawDt, {
     act: currentAct,
     playerX: player.x,
@@ -1377,7 +1932,7 @@ function gameLoop(now) {
     }
   }
 
-  // Update dynamic Sub-Location Name in Top HUD as player moves through historical zones
+  // Update dynamic Sub-Location Name in Top HUD
   if (gameStarted) {
     const liveZone = getZoneName(currentAct, player.x);
     if (contextLocation.textContent !== liveZone) {
@@ -1385,18 +1940,13 @@ function gameLoop(now) {
     }
   }
 
-  // Check nearby Interactable [E] (both horizontal X and vertical Y platform proximity!)
+  // Check nearby Interactable ([E] on PC / [Chạm] on Mobile)
   nearbyInteractable = null;
   if (gameStarted && !transitionState.active && !activeQte) {
-    const actCfg = ACTS.find((a) => a.id === currentAct) || ACTS[0];
     let bestDist = WORLD_CONFIG.interactRadiusX;
     for (const item of interactablesState) {
       if (item.act !== currentAct) continue;
-      let itemY = getGroundY(item.x);
-      if (item.platformId) {
-        const plat = actCfg.platforms.find((p) => p.id === item.platformId);
-        if (plat) itemY = baseGroundY + plat.dy;
-      }
+      const itemY = getInteractableWorldY(item);
       const dx = Math.abs(player.x - item.x);
       const dy = Math.abs(player.y - itemY);
       if (dx < bestDist && dy < WORLD_CONFIG.interactRadiusY) {
@@ -1439,11 +1989,11 @@ function gameLoop(now) {
       incenseHud.classList.toggle('hidden', !nearMonument || modalState.open);
 
       if (nearMonument && !modalState.open) {
-        const isHoldingF = keysDown.has('KeyF') || mouseHoldingIncense;
+        const isHoldingIncense = keysDown.has('KeyF') || incenseHoldPointers.size > 0;
         const altarX = FINALE_EVENT.x - 60;
         const altarTopY = getGroundY(FINALE_EVENT.x) - 82;
 
-        if (isHoldingF) {
+        if (isHoldingIncense) {
           player.pose = 'bow_incense';
           player.facing = 1;
           finaleState.holdProgress = Math.min(
@@ -1456,6 +2006,8 @@ function gameLoop(now) {
           if (finaleState.holdProgress >= 1) {
             finaleState.completed = true;
             finaleState.postTimer = 0;
+            incenseHoldPointers.clear();
+            btnHoldIncense.classList.remove('holding');
             incenseHud.classList.add('hidden');
             sound.playIncenseComplete();
             vfx.triggerFlash(0.62, '#fef9c3', 1.2);
@@ -1486,6 +2038,7 @@ function gameLoop(now) {
       if (!finaleState.overlayShown && finaleState.postTimer >= FINALE_EVENT.spiritViewingDelay) {
         finaleState.overlayShown = true;
         finaleOverlay.classList.remove('hidden');
+        syncTouchControlsVisibility();
       }
     }
   } else {
@@ -1521,6 +2074,8 @@ function gameLoop(now) {
       tankProgress,
       transitionState,
       finaleState,
+      isTouchMode: isMobileMode,
+      autoSeekItem,
       dt: scaledDt,
     },
     vfx

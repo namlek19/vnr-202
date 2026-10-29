@@ -18,6 +18,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -25,10 +26,14 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background: #04060a;
   color: var(--text-main);
   font-family: var(--font-sans);
+  touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -36,13 +41,16 @@ body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  touch-action: none;
 }
 
 #game-canvas {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
   transition: filter 0.35s ease;
 }
 
@@ -51,6 +59,10 @@ body {
 }
 
 .hidden {
+  display: none !important;
+}
+
+body.touch-mode .pc-only-kbd {
   display: none !important;
 }
 
@@ -69,6 +81,111 @@ kbd {
   border-radius: 4px;
 }
 
+/* ==================== PORTRAIT ORIENTATION LOCK OVERLAY ==================== */
+.orientation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: radial-gradient(
+    circle at 50% 42%,
+    rgba(19, 27, 42, 0.96) 0%,
+    rgba(4, 6, 11, 0.99) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: center;
+}
+
+.orientation-overlay.force-visible {
+  display: flex;
+}
+
+@media screen and (orientation: portrait) and (max-width: 1024px) {
+  .orientation-overlay {
+    display: flex;
+  }
+}
+
+.orientation-card {
+  max-width: 360px;
+  padding: 34px 28px;
+  border-radius: 16px;
+  background: rgba(10, 14, 24, 0.88);
+  border: 1px solid rgba(253, 230, 138, 0.28);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.78);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.rotate-phone-stage {
+  width: 88px;
+  height: 88px;
+  color: var(--ivory-warm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rotate-phone-svg {
+  width: 84px;
+  height: 84px;
+}
+
+.phone-device-group {
+  transform-origin: 44px 44px;
+  animation: rotatePhoneSmooth 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+.rotate-arc,
+.rotate-arrow {
+  animation: pulseGoldArc 2.6s ease-in-out infinite;
+}
+
+@keyframes rotatePhoneSmooth {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+  52%,
+  78% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes pulseGoldArc {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  45%,
+  70% {
+    opacity: 0.95;
+  }
+}
+
+.orientation-kicker {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.orientation-message {
+  font-family: var(--font-serif);
+  font-size: 1.16rem;
+  line-height: 1.55;
+  color: var(--ivory-warm);
+}
+
 /* ==================== TOP HUD: INTRO -> DOCKED PERSISTENT LOCATION ==================== */
 .top-context-hud {
   position: fixed;
@@ -81,6 +198,8 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: max-content;
+  max-width: calc(100vw - 32px);
 }
 
 .context-meta {
@@ -126,7 +245,7 @@ kbd {
 
 .context-title {
   font-family: var(--font-serif);
-  font-size: clamp(1.55rem, 2.8vw, 2.25rem);
+  font-size: clamp(1.4rem, 2.8vw, 2.25rem);
   font-weight: 600;
   letter-spacing: 0.05em;
   color: #ffffff;
@@ -157,11 +276,12 @@ kbd {
   bottom: 62px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 640px;
+  max-width: min(640px, calc(100vw - 48px));
   padding: 9px 20px;
   border-radius: 999px;
   background: rgba(8, 12, 20, 0.76);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(253, 230, 138, 0.25);
   font-family: var(--font-serif);
   font-style: italic;
@@ -170,7 +290,160 @@ kbd {
   text-align: center;
   z-index: 26;
   pointer-events: none;
-  animation: gentleFadeIn 0.4s ease forwards;
+}
+
+/* ==================== VIRTUAL ANALOG JOYSTICK & QUICK ACTION BUTTONS ==================== */
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  transition: opacity 0.25s ease;
+}
+
+.touch-controls.soft-dim {
+  opacity: 0.28;
+}
+
+.virtual-joystick {
+  position: absolute;
+  left: max(22px, calc(env(safe-area-inset-left, 0px) + 16px));
+  bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(15, 23, 42, 0.34) 0%,
+    rgba(8, 12, 20, 0.56) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.2px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.virtual-joystick.active {
+  border-color: rgba(253, 230, 138, 0.52);
+  background: radial-gradient(
+    circle,
+    rgba(24, 34, 56, 0.46) 0%,
+    rgba(10, 15, 26, 0.68) 100%
+  );
+}
+
+.joy-dir {
+  position: absolute;
+  font-size: 0.56rem;
+  color: rgba(248, 250, 252, 0.3);
+  pointer-events: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.joy-up {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joy-down {
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joy-left {
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.joy-right {
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.virtual-joystick.tilt-up .joy-up,
+.virtual-joystick.tilt-down .joy-down,
+.virtual-joystick.tilt-left .joy-left,
+.virtual-joystick.tilt-right .joy-right {
+  color: rgba(254, 240, 138, 0.92);
+}
+
+.joystick-knob {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(254, 243, 199, 0.88) 0%,
+    rgba(226, 232, 240, 0.52) 100%
+  );
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.48);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.virtual-joystick.active .joystick-knob {
+  border-color: #fef08a;
+  box-shadow: 0 0 18px rgba(253, 224, 71, 0.45);
+}
+
+/* Right-hand Quick Jump (▲) & Drop-through (▼) buttons */
+.touch-action-cluster {
+  position: absolute;
+  right: max(22px, calc(env(safe-area-inset-right, 0px) + 16px));
+  bottom: calc(50px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-action-btn {
+  border-radius: 50%;
+  background: rgba(10, 15, 26, 0.46);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.2px solid rgba(255, 255, 255, 0.2);
+  color: rgba(254, 243, 199, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+  transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.touch-jump-btn {
+  width: 56px;
+  height: 56px;
+  font-size: 1.08rem;
+  margin-bottom: 10px;
+}
+
+.touch-drop-btn {
+  width: 46px;
+  height: 46px;
+  font-size: 0.92rem;
+}
+
+.touch-action-btn:active,
+.touch-action-btn.pressed {
+  transform: scale(0.92);
+  background: rgba(253, 230, 138, 0.24);
+  border-color: rgba(253, 230, 138, 0.85);
+  color: #ffffff;
 }
 
 /* ==================== MINIMALIST BOTTOM BAR ==================== */
@@ -179,8 +452,9 @@ kbd {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 38px;
-  padding: 0 20px;
+  height: calc(38px + env(safe-area-inset-bottom, 0px));
+  padding: 0 max(20px, env(safe-area-inset-right, 20px)) env(safe-area-inset-bottom, 0px)
+    max(20px, env(safe-area-inset-left, 20px));
   background: var(--glass-strip);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -248,7 +522,10 @@ kbd {
   position: absolute;
   bottom: calc(100% + 10px);
   right: 0;
-  width: 310px;
+  width: min(310px, calc(100vw - 28px));
+  max-height: calc(100dvh - 58px);
+  overflow-y: auto;
+  touch-action: pan-y;
   padding: 8px;
   border-radius: 10px;
   background: rgba(10, 14, 22, 0.94);
@@ -334,11 +611,16 @@ kbd {
   transform: translateY(-1px);
 }
 
+.primary-clean-btn:active {
+  transform: scale(0.97);
+}
+
 .subtle-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.45rem 1.1rem;
+  justify-content: center;
+  gap: 7px;
+  padding: 0.5rem 1.2rem;
   border-radius: 999px;
   border: 1px solid var(--gold-muted);
   background: rgba(253, 230, 138, 0.12);
@@ -346,6 +628,22 @@ kbd {
   font-family: var(--font-sans);
   font-size: 0.82rem;
   cursor: pointer;
+  touch-action: none;
+  transition: transform 0.14s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.incense-hold-btn.holding,
+.incense-hold-btn:active {
+  transform: scale(0.97);
+  background: rgba(253, 230, 138, 0.28);
+  border-color: #fef08a;
+  box-shadow: 0 0 22px rgba(253, 224, 71, 0.42);
+}
+
+.incense-icon-svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 /* ==================== QTE OVERLAY (CLEAN MINIMAL) ==================== */
@@ -360,15 +658,19 @@ kbd {
   gap: 14px;
   z-index: 35;
   text-align: center;
+  width: max-content;
+  max-width: calc(100vw - 28px);
 }
 
 .qte-header {
   background: rgba(9, 13, 22, 0.82);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 10px 22px;
   border-radius: 12px;
-  max-width: 540px;
+  max-width: min(540px, calc(100vw - 32px));
+  pointer-events: none;
 }
 
 .qte-kicker {
@@ -401,6 +703,7 @@ kbd {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  touch-action: none;
 }
 
 .qte-target-zone {
@@ -410,6 +713,7 @@ kbd {
   border-radius: 50%;
   border: 3px solid rgba(253, 230, 138, 0.78);
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  pointer-events: none;
 }
 
 .qte-target-zone.in-sweet-spot {
@@ -466,11 +770,21 @@ kbd {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+body.touch-mode .qte-key-cap {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+  padding: 0 16px;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
 }
 
 .qte-substatus {
   font-size: 0.78rem;
   color: rgba(248, 250, 252, 0.8);
+  pointer-events: none;
 }
 
 /* ==================== FAIL-SAFE ENCOURAGEMENT ==================== */
@@ -484,6 +798,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   animation: gentleFadeIn 0.22s ease forwards;
 }
 
@@ -504,29 +819,33 @@ kbd {
 /* ==================== MONUMENT INCENSE HOLD HUD ==================== */
 .incense-hud {
   position: fixed;
-  bottom: 58px;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 32;
-  width: min(460px, calc(100vw - 32px));
+  z-index: 33;
+  width: min(440px, calc(100vw - 260px));
+  min-width: 270px;
 }
 
 .incense-card {
-  padding: 15px 22px;
+  padding: 14px 20px;
   border-radius: 12px;
-  background: rgba(10, 15, 24, 0.82);
+  background: rgba(10, 15, 24, 0.84);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(253, 230, 138, 0.3);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(253, 230, 138, 0.32);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  touch-action: none;
+  cursor: pointer;
 }
 
 #incense-prompt {
   font-family: var(--font-serif);
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   color: #ffffff;
 }
 
@@ -556,17 +875,22 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px max(20px, env(safe-area-inset-right, 20px)) 16px
+    max(20px, env(safe-area-inset-left, 20px));
   animation: gentleFadeIn 0.25s ease forwards;
 }
 
 .story-card {
   width: min(700px, 100%);
-  padding: 34px 40px 28px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 32px 38px 26px;
   border-radius: 14px;
   background: var(--glass-panel);
   border: 1px solid rgba(253, 230, 138, 0.32);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.72);
+  cursor: pointer;
 }
 
 .story-tag-row {
@@ -582,24 +906,29 @@ kbd {
 
 .story-title {
   font-family: var(--font-serif);
-  font-size: clamp(1.25rem, 2.1vw, 1.62rem);
+  font-size: clamp(1.2rem, 2.1vw, 1.62rem);
   font-weight: 600;
   text-align: center;
   color: #ffffff;
-  line-height: 1.38;
+  line-height: 1.36;
 }
 
 .story-divider {
   width: 120px;
   height: 1px;
-  margin: 16px auto 20px;
+  flex-shrink: 0;
+  margin: 14px auto 18px;
   background: linear-gradient(90deg, transparent, rgba(253, 230, 138, 0.55), transparent);
 }
 
 .story-body {
-  min-height: 120px;
-  font-size: 0.99rem;
-  line-height: 1.82;
+  min-height: 90px;
+  overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+  font-size: 0.98rem;
+  line-height: 1.8;
   color: #e2e8f0;
   text-align: justify;
 }
@@ -622,7 +951,8 @@ kbd {
 }
 
 .story-footer {
-  margin-top: 24px;
+  margin-top: 20px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -646,14 +976,21 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 18px max(20px, env(safe-area-inset-right, 20px)) 18px
+    max(20px, env(safe-area-inset-left, 20px));
   overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   animation: gentleFadeIn 0.8s ease forwards;
 }
 
 .finale-card {
   width: min(820px, 100%);
-  padding: 36px 44px;
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  padding: 34px 42px;
   border-radius: 16px;
   background: rgba(12, 16, 26, 0.95);
   border: 1px solid rgba(253, 230, 138, 0.38);
@@ -672,26 +1009,26 @@ kbd {
 
 .finale-heading {
   font-family: var(--font-serif);
-  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  font-size: clamp(1.4rem, 2.6vw, 2.05rem);
   font-weight: 600;
   color: #ffffff;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .finale-quote {
-  padding: 18px 24px;
+  padding: 16px 22px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
   border-left: 2px solid var(--ivory-warm);
   text-align: left;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 #finale-quote-text {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 1.0rem;
-  line-height: 1.76;
+  font-size: 0.98rem;
+  line-height: 1.74;
   color: #fef9c3;
 }
 
@@ -703,17 +1040,17 @@ kbd {
 }
 
 .finale-lesson-box {
-  padding: 18px 24px;
+  padding: 16px 22px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: justify;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 #finale-lesson-title {
   font-family: var(--font-serif);
-  font-size: 1.08rem;
+  font-size: 1.06rem;
   font-weight: 600;
   color: var(--ivory-warm);
   margin-bottom: 8px;
@@ -721,8 +1058,8 @@ kbd {
 }
 
 #finale-lesson-text {
-  font-size: 0.94rem;
-  line-height: 1.76;
+  font-size: 0.93rem;
+  line-height: 1.74;
   color: #cbd5e1;
 }
 
@@ -731,12 +1068,19 @@ kbd {
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: radial-gradient(circle at 50% 42%, rgba(18, 25, 38, 0.88) 0%, rgba(4, 6, 10, 0.97) 100%);
+  background: radial-gradient(
+    circle at 50% 42%,
+    rgba(18, 25, 38, 0.88) 0%,
+    rgba(4, 6, 10, 0.97) 100%
+  );
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
+  overflow-y: auto;
+  touch-action: pan-y;
   transition: opacity 0.6s ease;
 }
 
@@ -747,7 +1091,9 @@ kbd {
 
 .intro-card {
   width: min(620px, 100%);
-  padding: 40px 42px;
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  padding: 38px 40px;
   border-radius: 16px;
   background: rgba(10, 14, 22, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -765,7 +1111,7 @@ kbd {
 
 .intro-title {
   font-family: var(--font-serif);
-  font-size: clamp(2.1rem, 3.8vw, 2.95rem);
+  font-size: clamp(1.95rem, 3.8vw, 2.95rem);
   font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.03em;
@@ -781,7 +1127,7 @@ kbd {
 
 .intro-desc {
   font-size: 0.95rem;
-  line-height: 1.76;
+  line-height: 1.74;
   color: #cbd5e1;
   margin-bottom: 18px;
 }
@@ -789,7 +1135,7 @@ kbd {
 .intro-subtle-keys {
   font-size: 0.78rem;
   color: var(--text-muted);
-  margin-bottom: 26px;
+  margin-bottom: 24px;
 }
 
 .intro-subtle-keys span {
@@ -818,11 +1164,8 @@ kbd {
   }
 }
 
-.cinematic-caption {
-  animation: none;
-}
-
-@media (max-width: 720px) {
+/* ==================== MOBILE & SHORT LANDSCAPE RESPONSIVE (max-height: 450px / 500px) ==================== */
+@media (max-width: 760px) {
   .bar-sub,
   .bar-pipe {
     display: none;
@@ -830,6 +1173,243 @@ kbd {
   .story-card,
   .finale-card,
   .intro-card {
-    padding: 24px 20px;
+    padding: 22px 20px;
+  }
+}
+
+@media (max-height: 480px) {
+  .top-context-hud {
+    top: 10px;
+  }
+
+  .context-meta {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+  }
+
+  .context-title-wrap {
+    margin-top: 7px;
+  }
+
+  .context-title {
+    font-size: 1.25rem;
+  }
+
+  .context-subtitle {
+    margin-top: 3px;
+    font-size: 0.75rem;
+  }
+
+  .cinematic-caption {
+    bottom: 46px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+  }
+
+  /* Compact Virtual Joystick & Quick Buttons on low-height mobile landscape */
+  .virtual-joystick {
+    width: 94px;
+    height: 94px;
+    bottom: calc(42px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .joystick-knob {
+    width: 38px;
+    height: 38px;
+  }
+
+  .touch-action-cluster {
+    bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+
+  .touch-jump-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 0.98rem;
+    margin-bottom: 6px;
+  }
+
+  .touch-drop-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 0.84rem;
+  }
+
+  /* Compact QTE Overlay so nothing clips on max-height: 450px */
+  .qte-overlay {
+    top: 45%;
+    gap: 8px;
+  }
+
+  .qte-header {
+    padding: 7px 15px;
+  }
+
+  .qte-kicker {
+    font-size: 0.58rem;
+    margin-bottom: 2px;
+  }
+
+  #qte-title {
+    font-size: 0.98rem;
+    margin-bottom: 2px;
+  }
+
+  #qte-prompt {
+    font-size: 0.76rem;
+  }
+
+  .qte-ring-stage {
+    width: 124px;
+    height: 124px;
+  }
+
+  .qte-target-zone {
+    width: 78px;
+    height: 78px;
+  }
+
+  .qte-shrinking-ring {
+    width: 124px;
+    height: 124px;
+  }
+
+  .qte-mash-svg {
+    width: 118px;
+    height: 118px;
+  }
+
+  .qte-key-cap {
+    min-width: 58px;
+    height: 34px;
+    font-size: 0.84rem;
+  }
+
+  .qte-substatus {
+    font-size: 0.72rem;
+  }
+
+  /* Compact Incense HUD */
+  .incense-hud {
+    bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .incense-card {
+    padding: 9px 14px;
+    gap: 6px;
+  }
+
+  #incense-prompt {
+    font-size: 0.82rem;
+  }
+
+  /* Compact Story, Intro & Finale Cards so they never overflow 350px-450px screens */
+  .modal-backdrop,
+  .finale-backdrop,
+  .intro-backdrop {
+    padding: 10px max(16px, env(safe-area-inset-right, 16px)) 10px
+      max(16px, env(safe-area-inset-left, 16px));
+  }
+
+  .story-card {
+    max-height: calc(100dvh - 20px);
+    padding: 16px 22px 14px;
+  }
+
+  .story-tag-row {
+    font-size: 0.66rem;
+    margin-bottom: 3px;
+  }
+
+  .story-title {
+    font-size: 1.05rem;
+  }
+
+  .story-divider {
+    margin: 8px auto 10px;
+  }
+
+  .story-body {
+    min-height: 0;
+    font-size: 0.86rem;
+    line-height: 1.62;
+  }
+
+  .story-note {
+    margin-top: 8px;
+    padding-top: 8px;
+    font-size: 0.8rem;
+  }
+
+  .story-footer {
+    margin-top: 12px;
+  }
+
+  .primary-clean-btn {
+    padding: 0.46rem 1.15rem;
+    font-size: 0.8rem;
+  }
+
+  .intro-card {
+    max-height: calc(100dvh - 20px);
+    padding: 18px 24px;
+  }
+
+  .intro-kicker {
+    font-size: 0.64rem;
+    margin-bottom: 4px;
+  }
+
+  .intro-title {
+    font-size: 1.55rem;
+  }
+
+  .intro-period {
+    font-size: 0.7rem;
+    margin-top: 3px;
+  }
+
+  .intro-desc {
+    font-size: 0.83rem;
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+
+  .intro-subtle-keys {
+    font-size: 0.72rem;
+    margin-bottom: 12px;
+  }
+
+  .finale-card {
+    max-height: calc(100dvh - 20px);
+    padding: 18px 22px;
+  }
+
+  .finale-heading {
+    font-size: 1.22rem;
+    margin-bottom: 10px;
+  }
+
+  .finale-quote,
+  .finale-lesson-box {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+  }
+
+  #finale-quote-text,
+  #finale-lesson-text {
+    font-size: 0.83rem;
+    line-height: 1.56;
+  }
+
+  .bottom-bar {
+    height: calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .minimal-bar-btn {
+    height: 23px;
+    font-size: 0.69rem;
+    padding: 0 9px;
   }
 }

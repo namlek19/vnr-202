@@ -2,7 +2,10 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>Dòng Chảy Độc Lập (1930 – Nay) | Nhóm Chủ đề 2</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,6 +17,58 @@
   </head>
   <body>
     <div id="app">
+      <!-- Màn hình Yêu cầu Xoay ngang trên Mobile (Portrait Orientation Lock Overlay) -->
+      <div id="orientation-overlay" class="orientation-overlay" role="alert" aria-live="assertive">
+        <div class="orientation-card">
+          <div class="rotate-phone-stage" aria-hidden="true">
+            <svg class="rotate-phone-svg" viewBox="0 0 88 88" fill="none">
+              <path
+                class="rotate-arc"
+                d="M18 32C22 19 35 11 49 13C58 14 66 20 70 28"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-dasharray="4 4"
+              />
+              <path
+                class="rotate-arrow"
+                d="M64 28L71 29L72 22"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <g class="phone-device-group">
+                <rect
+                  x="29"
+                  y="18"
+                  width="30"
+                  height="52"
+                  rx="6"
+                  stroke="#fef3c7"
+                  stroke-width="2.4"
+                  fill="rgba(15, 23, 42, 0.75)"
+                />
+                <line
+                  x1="40"
+                  y1="23"
+                  x2="48"
+                  y2="23"
+                  stroke="rgba(253, 230, 138, 0.55)"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+                <circle cx="44" cy="64" r="2" fill="#fde68a" />
+              </g>
+            </svg>
+          </div>
+          <div class="orientation-kicker">TRẢI NGHIỆM KHUNG HÌNH ĐIỆN ẢNH</div>
+          <p class="orientation-message">
+            Vui lòng xoay ngang thiết bị để bắt đầu hành trình lịch sử
+          </p>
+        </div>
+      </div>
+
       <!-- Canvas Thế giới 2D Silhouette & Địa hình Đa tầng -->
       <canvas id="game-canvas"></canvas>
 
@@ -35,6 +90,38 @@
       <!-- Dòng phụ đề tinh tế khi Chuyển giao thế hệ (Cuối Màn 2 & Cuối Màn 3) hoặc nhắc nhiệm vụ -->
       <div id="cinematic-caption" class="cinematic-caption hidden"></div>
 
+      <!-- Cụm Điều khiển Cảm ứng (Chỉ hiển thị trên thiết bị Touch / Màn hình nhỏ, ẩn hoàn toàn trên PC) -->
+      <div id="touch-controls" class="touch-controls hidden" aria-label="Điều khiển cảm ứng">
+        <!-- Góc dưới trái: Con quay ảo 360 độ (Trái/Phải + Gạt lên Nhảy + Gạt xuống Tụt tầng) -->
+        <div id="virtual-joystick" class="virtual-joystick" role="slider" aria-label="Bàn điều hướng">
+          <span class="joy-dir joy-up" aria-hidden="true">▲</span>
+          <span class="joy-dir joy-down" aria-hidden="true">▼</span>
+          <span class="joy-dir joy-left" aria-hidden="true">◀</span>
+          <span class="joy-dir joy-right" aria-hidden="true">▶</span>
+          <div id="joystick-knob" class="joystick-knob"></div>
+        </div>
+
+        <!-- Góc dưới phải: Nút Nhảy nhanh (▲) & Nút Ngồi/Tụt xuống (▼) song song -->
+        <div class="touch-action-cluster">
+          <button
+            type="button"
+            id="btn-touch-jump"
+            class="touch-action-btn touch-jump-btn"
+            aria-label="Nhảy lên"
+          >
+            <span>▲</span>
+          </button>
+          <button
+            type="button"
+            id="btn-touch-drop"
+            class="touch-action-btn touch-drop-btn"
+            aria-label="Tụt xuống tầng dưới"
+          >
+            <span>▼</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Giao diện QTE Slow-motion Tối giản -->
       <section id="qte-overlay" class="qte-overlay hidden" aria-live="assertive">
         <div class="qte-header">
@@ -43,7 +130,7 @@
           <p id="qte-prompt">Bấm [SPACE] đúng nhịp vòng sáng!</p>
         </div>
 
-        <div id="qte-ring-stage" class="qte-ring-stage" title="Bấm phím yêu cầu hoặc nhấp chuột">
+        <div id="qte-ring-stage" class="qte-ring-stage" title="Bấm phím yêu cầu hoặc chạm trực tiếp">
           <div id="qte-target-zone" class="qte-target-zone"></div>
           <div id="qte-shrinking-ring" class="qte-shrinking-ring"></div>
           <svg class="qte-mash-svg" viewBox="0 0 160 160">
@@ -63,22 +150,42 @@
         </div>
       </div>
 
-      <!-- Giao diện Giữ [F] 2.5s Dâng hương tại Đài tưởng niệm -->
+      <!-- Giao diện Giữ [F] / Touch & Hold 2.5s Dâng hương tại Đài tưởng niệm -->
       <section id="incense-hud" class="incense-hud hidden">
-        <div class="incense-card">
+        <div id="incense-card" class="incense-card">
           <p id="incense-prompt">Giữ phím [F] trong 2.5 giây để thắp nén tâm hương tri ân</p>
           <div class="incense-bar-outer">
             <div id="incense-bar-fill" class="incense-bar-fill"></div>
           </div>
-          <button type="button" id="btn-hold-incense" class="subtle-action-btn">
-            Giữ <kbd>F</kbd> dâng hương (<span id="incense-percent">0%</span>)
+          <button type="button" id="btn-hold-incense" class="subtle-action-btn incense-hold-btn">
+            <svg class="incense-icon-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M10 3.5C10 5 11.2 5.6 11.2 7M14 3C14 4.5 15.2 5.2 15.2 6.6"
+                stroke="#fde68a"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <line x1="10.5" y1="8.5" x2="11.5" y2="15" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" />
+              <line x1="13.5" y1="8.5" x2="12.5" y2="15" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" />
+              <circle cx="10.5" cy="8.2" r="1.1" fill="#fef08a" />
+              <circle cx="13.5" cy="8.2" r="1.1" fill="#fef08a" />
+              <path
+                d="M6.5 15.2H17.5L16 20H8L6.5 15.2Z"
+                fill="rgba(245, 158, 11, 0.35)"
+                stroke="#fde68a"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span id="incense-btn-label">Giữ <kbd>F</kbd> dâng hương</span>
+            <span>(<span id="incense-percent">0%</span>)</span>
           </button>
         </div>
       </section>
 
       <!-- Modal Tư liệu Lịch sử (Typewriter) -->
       <div id="story-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
-        <article class="story-card">
+        <article id="story-card" class="story-card">
           <div class="story-tag-row">
             <span id="modal-tag">MỐC LỊCH SỬ</span>
           </div>
@@ -94,8 +201,8 @@
           <div class="story-footer">
             <span id="modal-hint" class="modal-hint">Ấn SPACE hiện nhanh • Ấn E để tiếp tục</span>
             <button type="button" id="btn-close-modal" class="primary-clean-btn">
-              <span>Tiếp tục</span>
-              <kbd>E</kbd>
+              <span>Tiếp tục hành trình</span>
+              <kbd class="pc-only-kbd">E</kbd>
             </button>
           </div>
         </article>
@@ -134,7 +241,7 @@
             Hành trình đi qua bốn chặng đường lịch sử của dân tộc: từ ngọn lửa giữa đêm đen nô lệ,
             qua chiến lũy Hà Nội và hào sâu Điện Biên, vượt đại ngàn Trường Sơn đến bình minh hòa bình hôm nay.
           </p>
-          <p class="intro-subtle-keys">
+          <p id="intro-controls-line" class="intro-subtle-keys">
             Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span>
           </p>
           <button type="button" id="btn-start-game" class="primary-clean-btn intro-start-btn">

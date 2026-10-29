@@ -219,6 +219,8 @@ export class WorldRenderer {
       tankProgress,
       transitionState,
       finaleState,
+      isTouchMode = false,
+      autoSeekItem = null,
       dt,
     } = state;
 
@@ -267,10 +269,11 @@ export class WorldRenderer {
       activeQte,
       tankProgress,
       finaleState,
-      nearbyObstacleHint
+      nearbyObstacleHint,
+      isTouchMode
     );
 
-    // 7. Grounded Historical Interactables (Clean silhouettes; [E] hint ONLY when nearby)
+    // 7. Grounded Historical Interactables (Clean silhouettes; [E] / [Chạm] hint ONLY when nearby)
     this.drawInteractables(
       ctx,
       act,
@@ -279,7 +282,9 @@ export class WorldRenderer {
       cameraX,
       width,
       interactables,
-      nearbyInteractable
+      nearbyInteractable,
+      isTouchMode,
+      autoSeekItem
     );
 
     // 8. Waiting Successor at End of Act 2 & Act 3 (localX = 2860)
@@ -728,7 +733,8 @@ export class WorldRenderer {
     activeQte,
     tankProgress,
     finaleState,
-    nearbyObstacleHint
+    nearbyObstacleHint,
+    isTouchMode = false
   ) {
     const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
     ctx.save();
@@ -933,7 +939,10 @@ export class WorldRenderer {
     if (nearbyObstacleHint) {
       const ox = (nearbyObstacleHint.x1 + nearbyObstacleHint.x2) * 0.5 - cameraX;
       const oy = baseGroundY + nearbyObstacleHint.dy - 26;
-      this.drawMinimalFloatingHint(ctx, ox, oy, nearbyObstacleHint.hint);
+      const hintText = isTouchMode
+        ? nearbyObstacleHint.hint.replace('[W]', '[▲]')
+        : nearbyObstacleHint.hint;
+      this.drawMinimalFloatingHint(ctx, ox, oy, hintText, false);
     }
 
     // ==================== ICONIC STAGE LANDMARKS PER ACT ====================
@@ -1198,7 +1207,7 @@ export class WorldRenderer {
 
   /**
    * Vẽ các vật phẩm lịch sử đặt vững chãi trên địa hình/platform.
-   * CHỈ hiển thị nhãn gợi ý nhỏ [E] Khám phá ngay trên đầu vật phẩm KHI nhân vật lại gần!
+   * CHỈ hiển thị nhãn gợi ý nhỏ [E] Khám phá (hoặc [Chạm] Khám phá trên cảm ứng) KHI nhân vật lại gần!
    */
   drawInteractables(
     ctx,
@@ -1208,7 +1217,9 @@ export class WorldRenderer {
     cameraX,
     width,
     interactables,
-    nearbyInteractable
+    nearbyInteractable,
+    isTouchMode = false,
+    autoSeekItem = null
   ) {
     const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
 
@@ -1224,49 +1235,86 @@ export class WorldRenderer {
       }
 
       const isNear = nearbyInteractable && nearbyInteractable.id === item.id;
+      const isSeeking = autoSeekItem && autoSeekItem.id === item.id;
 
       ctx.save();
       ctx.translate(sx, itemY);
 
       // Subtle localized rim glow ONLY so the prop reads cleanly against dark silhouettes (no floating orbs!)
-      const subtleAlpha = isNear ? 0.34 : 0.14;
-      const g = ctx.createRadialGradient(0, -24, 2, 0, -24, isNear ? 52 : 34);
+      const subtleAlpha = isNear ? 0.36 : isSeeking ? 0.28 : 0.14;
+      const g = ctx.createRadialGradient(0, -24, 2, 0, -24, isNear ? 54 : 36);
       g.addColorStop(0, `rgba(253, 230, 138, ${subtleAlpha})`);
       g.addColorStop(1, 'rgba(253, 230, 138, 0)');
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(0, -24, isNear ? 52 : 34, 0, Math.PI * 2);
+      ctx.arc(0, -24, isNear ? 54 : 36, 0, Math.PI * 2);
       ctx.fill();
 
-      this.drawArtifactVector(ctx, item.iconType, isNear);
+      // Subtle ground ripple when player tapped a distant visible artifact to auto-run toward it
+      if (isSeeking) {
+        const pulse = (this.time * 1.9) % 1;
+        ctx.save();
+        ctx.strokeStyle = `rgba(253, 230, 138, ${(1 - pulse) * 0.75})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 16 + pulse * 26, 4 + pulse * 6, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      this.drawArtifactVector(ctx, item.iconType, isNear || isSeeking);
 
       // ONLY display compact floating prompt when player is nearby!
       if (isNear) {
         const floatY = -74 + Math.sin(this.time * 3.2) * 3;
-        const label = item.visited ? '[E] Xem lại' : '[E] Khám phá';
-        this.drawMinimalFloatingHint(ctx, 0, floatY, label);
+        const label = isTouchMode
+          ? item.visited
+            ? '[Chạm] Xem lại'
+            : '[Chạm] Khám phá'
+          : item.visited
+          ? '[E] Xem lại'
+          : '[E] Khám phá';
+        this.drawMinimalFloatingHint(ctx, 0, floatY, label, isTouchMode);
       }
 
       ctx.restore();
     }
   }
 
-  drawMinimalFloatingHint(ctx, x, y, text) {
+  drawMinimalFloatingHint(ctx, x, y, text, elevatedTouchPill = false) {
     ctx.save();
+    const pulseScale = elevatedTouchPill ? 1 + Math.sin(this.time * 4.2) * 0.032 : 1;
     ctx.translate(x, y);
-    ctx.font = '500 12px "Be Vietnam Pro", sans-serif';
+    ctx.scale(pulseScale, pulseScale);
+
+    ctx.font = elevatedTouchPill
+      ? '600 12.5px "Be Vietnam Pro", sans-serif'
+      : '500 12px "Be Vietnam Pro", sans-serif';
     const tw = ctx.measureText(text).width;
-    const pw = tw + 22;
-    const ph = 25;
+    const pw = tw + (elevatedTouchPill ? 26 : 22);
+    const ph = elevatedTouchPill ? 28 : 25;
 
-    ctx.fillStyle = 'rgba(10, 14, 22, 0.86)';
-    fillRoundedRect(ctx, -pw * 0.5, -ph * 0.5, pw, ph, 12.5);
+    if (elevatedTouchPill) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 3;
+    }
 
-    ctx.strokeStyle = 'rgba(253, 230, 138, 0.62)';
-    ctx.lineWidth = 1.1;
+    ctx.fillStyle = elevatedTouchPill
+      ? 'rgba(15, 21, 34, 0.92)'
+      : 'rgba(10, 14, 22, 0.86)';
+    fillRoundedRect(ctx, -pw * 0.5, -ph * 0.5, pw, ph, ph * 0.5);
+
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    ctx.strokeStyle = elevatedTouchPill
+      ? 'rgba(253, 224, 71, 0.9)'
+      : 'rgba(253, 230, 138, 0.62)';
+    ctx.lineWidth = elevatedTouchPill ? 1.4 : 1.1;
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(-pw * 0.5, -ph * 0.5, pw, ph, 12.5);
+      ctx.roundRect(-pw * 0.5, -ph * 0.5, pw, ph, ph * 0.5);
     } else {
       ctx.rect(-pw * 0.5, -ph * 0.5, pw, ph);
     }
