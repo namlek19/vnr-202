@@ -1,0 +1,16 @@
+{
+  "name": "vnr-202-interactive-storytelling",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dòng Chảy Độc Lập (1930 - Nay): Web Interactive Storytelling 2D & QTE Lịch sử Đảng Cộng sản Việt Nam",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
+

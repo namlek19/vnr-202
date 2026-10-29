@@ -1,0 +1,3 @@
+# Đặt các file bgm_act1.mp3, bgm_act2.mp3, bgm_act3.mp3, bgm_act4.mp3 vào thư mục này nếu muốn dùng nhạc nền MP3 tùy chỉnh.
+# Nếu chưa có file MP3, hệ thống tự động chạy nhạc nền Ambient bằng Web Audio API mà không báo lỗi 404.
+
