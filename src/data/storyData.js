@@ -44,36 +44,44 @@ export const ACTS = [
       gold: '#eab308',
     },
     zones: [
-      { minX: 0, maxX: 880, name: 'Xóm lao động nghèo' },
-      { minX: 880, maxX: 1680, name: 'Rừng núi biên giới Cao Bằng' },
-      { minX: 1680, maxX: 2480, name: 'Khu kho thóc Nhật' },
-      { minX: 2480, maxX: 3100, name: 'Quảng trường Ba Đình' },
+      { minX: 0, maxX: 860, name: 'Đình làng & Căn hầm bí mật (1930)' },
+      { minX: 860, maxX: 1680, name: 'Suối Lê-nin & Hang Pác Bó — Cao Bằng' },
+      { minX: 1680, maxX: 2490, name: 'Kho thóc Nhật & Tháp canh tuần tra' },
+      { minX: 2490, maxX: 3100, name: 'Quảng trường Ba Đình lịch sử' },
     ],
-    // dy > 0: trũng xuống; dy < 0: cao lên so với mặt đất chuẩn
+    // dy > 0: trũng xuống (hầm bí mật, lòng suối); dy < 0: cao lên (lễ đài)
     groundProfile: [
       [0, 0],
-      [280, 6],
-      [560, -4],
-      [820, 8],
-      [980, -18],
-      [1140, 18],
-      [1420, 18],
-      [1620, -10],
-      [1760, 0],
+      [350, 0],
+      // Bậc xuống Căn hầm bí mật dưới nền nhà tranh (đọc Cương lĩnh 2/1930 ở x = 560)
+      [405, 24],
+      [455, 52],
+      [660, 52],
+      [710, 24],
+      [760, 0],
+      [910, 0],
+      // Lòng suối dưới chân vách đá vôi Pác Bó
+      [1000, 28],
+      [1540, 28],
+      [1635, 0],
+      // Sân Kho thóc Nhật phẳng có 3 ụ rơm / bụi tre ẩn nấp
       [2520, 0],
-      [2620, -18],
-      [2880, -18],
-      [3000, -18],
+      // Thềm cao Quảng trường Ba Đình
+      [2615, -22],
+      [3000, -22],
     ],
     platforms: [
-      // Các bậc đá cao thấp trên vách núi rừng biên giới Cao Bằng
-      { id: 'p1_rock1', x1: 960, x2: 1115, dy: -56, style: 'stone_ledge' },
-      { id: 'p1_rock2', x1: 1095, x2: 1245, dy: -106, style: 'stone_ledge' },
-      { id: 'p1_rock3', x1: 1220, x2: 1445, dy: -148, style: 'stone_ledge' },
-      { id: 'p1_rock4', x1: 1425, x2: 1575, dy: -78, style: 'stone_ledge' },
-      // Thùng gỗ & mái hiên thấp quanh Kho thóc Nhật
-      { id: 'p1_crates', x1: 1985, x2: 2105, dy: -52, style: 'wood_crate' },
-      { id: 'p1_awning', x1: 2085, x2: 2235, dy: -98, style: 'roof_eave' },
+      // Sàn nhà tranh phía trên Căn hầm bí mật (có thể bấm S tụt xuống hầm hoặc đi bậc thang hai bên)
+      { id: 'p1_thatched_floor', x1: 430, x2: 685, dy: -4, style: 'thatched_hut_floor' },
+      // Các mỏm đá vôi rêu phong cao thấp dẫn lên cửa hang Pác Bó trên cao
+      { id: 'p1_rock1', x1: 950, x2: 1105, dy: -46, style: 'pacbo_ledge' },
+      { id: 'p1_rock2', x1: 1085, x2: 1240, dy: -98, style: 'pacbo_ledge' },
+      { id: 'p1_rock3', x1: 1220, x2: 1465, dy: -148, style: 'pacbo_cave_mouth' },
+      { id: 'p1_rock4', x1: 1440, x2: 1585, dy: -74, style: 'pacbo_ledge' },
+      // 3 Ụ rơm lớn kết hợp bụi tre đặt cách quãng trước Kho thóc Nhật làm chỗ ẩn nấp đèn pha
+      { id: 'p1_hay1', x1: 1920, x2: 2005, dy: -44, style: 'haystack_cover' },
+      { id: 'p1_hay2', x1: 2050, x2: 2135, dy: -50, style: 'haystack_cover' },
+      { id: 'p1_hay3', x1: 2175, x2: 2260, dy: -45, style: 'haystack_cover' },
     ],
     obstacles: [],
     handoffAtEnd: null,
@@ -100,40 +108,54 @@ export const ACTS = [
       gold: '#f59e0b',
     },
     zones: [
-      { minX: 0, maxX: 780, name: 'Lớp học Bình dân học vụ' },
-      { minX: 780, maxX: 1540, name: 'Chiến lũy phố cổ Hà Nội' },
-      { minX: 1540, maxX: 2160, name: 'Đèo dốc Tây Bắc' },
-      { minX: 2160, maxX: 3100, name: 'Lòng chảo Điện Biên Phủ' },
+      { minX: 0, maxX: 760, name: 'Lớp học Bình dân học vụ' },
+      { minX: 760, maxX: 1540, name: 'Mái ngói & Chiến lũy Phố cổ Hà Nội' },
+      { minX: 1540, maxX: 2070, name: 'Đèo dốc Tây Bắc' },
+      { minX: 2070, maxX: 3100, name: 'Giao thông hào & Cứ điểm Điện Biên Phủ' },
     ],
     groundProfile: [
       [0, 0],
-      [780, 0],
-      [1520, 0],
-      // Đồi dốc Tây Bắc
-      [1720, -46],
-      [1880, -76],
-      [2040, -34],
-      [2160, 0],
-      // Giao thông hào Điện Biên Phủ trũng sâu dưới mặt đất
-      [2220, 48],
-      [2540, 48],
+      [1530, 0],
+      // Đèo dốc Tây Bắc
+      [1700, -48],
+      [1860, -76],
+      [2010, -28],
+      [2075, 0],
+      // Hố giao thông hào Điện Biên Phủ số 1 (trũng sâu dưới mặt đất phẳng)
+      [2105, 50],
+      [2205, 50],
+      [2235, 0],
+      // Ụ đất & Hàng rào dây thép gai số 1 -> Hố giao thông hào số 2
+      [2275, 0],
+      [2305, 52],
+      [2405, 52],
+      [2435, 0],
+      // Ụ đất số 2 -> Hố giao thông hào số 3 sát trước Lô cốt Pháp & Hầm Đờ Cátơri
+      [2470, 0],
+      [2495, 48],
+      [2570, 48],
       [2600, 0],
       [3000, 0],
     ],
     platforms: [
-      // Chiến lũy bàn ghế gỗ, bao cát & toa tàu điện cũ Hà Nội
-      { id: 'p2_barricade_low', x1: 920, x2: 1090, dy: -54, style: 'barricade' },
-      { id: 'p2_tram_top', x1: 1065, x2: 1320, dy: -104, style: 'tram_roof' },
-      { id: 'p2_balcony', x1: 1295, x2: 1435, dy: -56, style: 'roof_eave' },
-      // Ụ pháo cao & cầu ván bắc qua giao thông hào Điện Biên
-      { id: 'p2_trench_plank1', x1: 2230, x2: 2345, dy: -16, style: 'trench_plank' },
-      { id: 'p2_trench_plank2', x1: 2430, x2: 2555, dy: -20, style: 'trench_plank' },
-      // Nắp hầm tướng Đờ Cátơri
-      { id: 'p2_bunker_roof', x1: 2615, x2: 2765, dy: -56, style: 'bunker_roof' },
+      // Hệ thống Ban công tầng 2 & Mái ngói phố cổ nối tiếp nhau vượt trên chiến lũy lòng đường
+      { id: 'p2_barricade_low', x1: 785, x2: 910, dy: -52, style: 'barricade' },
+      { id: 'p2_hanoi_balcony1', x1: 890, x2: 1065, dy: -102, style: 'hanoi_balcony' },
+      { id: 'p2_tram_top', x1: 1050, x2: 1265, dy: -144, style: 'hanoi_tiled_roof' },
+      { id: 'p2_balcony', x1: 1250, x2: 1420, dy: -100, style: 'hanoi_balcony' },
+      { id: 'p2_barricade_out', x1: 1405, x2: 1510, dy: -48, style: 'barricade' },
+      // Nóc hầm chỉ huy Đờ Cátơri mái vòm thép
+      { id: 'p2_bunker_roof', x1: 2615, x2: 2775, dy: -54, style: 'bunker_roof' },
     ],
-    // Chiến lũy chặn ngang buộc bấm W nhảy lên vượt qua (cao 54px, dễ dàng nhảy qua)
+    // Chiến lũy toa tàu điện & bao cát chặn lòng đường hướng dẫn nhảy lên tầng 2 mái phố cổ
     obstacles: [
-      { id: 'obs_hanoi_barricade', x1: 935, x2: 1015, dy: -54, hint: '[W] Nhảy qua chiến lũy' },
+      {
+        id: 'obs_hanoi_barricade',
+        x1: 925,
+        x2: 1015,
+        dy: -54,
+        hint: '[W] Lên ban công & mái phố cổ vượt chiến lũy',
+      },
     ],
     handoffAtEnd: {
       successorAct: 3,
@@ -163,45 +185,45 @@ export const ACTS = [
       gold: '#fbbf24',
     },
     zones: [
-      { minX: 0, maxX: 980, name: 'Đường mòn Trường Sơn' },
-      { minX: 980, maxX: 1760, name: 'Cầu treo & Trạm giao liên rừng già' },
-      { minX: 1760, maxX: 2360, name: 'Tọa độ lửa Trường Sơn' },
-      { minX: 2360, maxX: 3100, name: 'Đường tiến về Dinh Độc Lập' },
+      { minX: 0, maxX: 980, name: 'Đường mòn & Trạm giao liên Trường Sơn' },
+      { minX: 980, maxX: 1450, name: 'Cầu treo vượt vực suối Trường Sơn' },
+      { minX: 1450, maxX: 2220, name: 'Đồi Pháo cao xạ 37mm & Tọa độ lửa' },
+      { minX: 2220, maxX: 3100, name: 'Đại lộ Sài Gòn — Dinh Độc Lập' },
     ],
     groundProfile: [
+      // Đường rừng lên đồi xuống suối tự nhiên -> Trạm giao liên hốc đá (x = 580)
       [0, 0],
-      [340, -28],
-      [620, -18],
-      [820, 0],
-      [1050, 0],
-      // Vực suối nông dưới cầu treo gỗ
-      [1110, 52],
-      [1340, 52],
-      [1400, -18],
-      [1560, -34],
-      [1760, 0],
-      // Hố bom trũng sâu tọa độ lửa
-      [1940, 50],
-      [2150, 50],
-      [2230, 0],
-      // Đường phố Sài Gòn & Bậc thềm Dinh Độc Lập
-      [2520, 0],
-      [2640, -18],
-      [3000, -18],
+      [250, -38],
+      [450, -10],
+      [540, 16],
+      [635, 16],
+      [760, -32],
+      [930, -10],
+      [1035, 0],
+      // Vực suối sâu bên dưới Cầu treo Trường Sơn
+      [1095, 62],
+      [1355, 62],
+      [1415, 0],
+      // Leo lên Mỏm đồi cao đặt Khẩu đội Pháo cao xạ phòng không 37mm (x = 1730)
+      [1520, -38],
+      [1655, -82],
+      [1800, -82],
+      [1915, 0],
+      // Hố bom tọa độ lửa -> Đổ xuống đại lộ phẳng tiến thẳng vào cổng Dinh Độc Lập
+      [1960, 48],
+      [2125, 48],
+      [2195, 0],
+      [2550, 0],
+      [2645, -16],
+      [3000, -16],
     ],
     platforms: [
-      // Thân cây cổ thụ đổ ngang đường rừng Trường Sơn
-      { id: 'p3_fallen_log', x1: 840, x2: 1030, dy: -50, style: 'fallen_log' },
-      // Cầu treo gỗ bắc qua vực suối
-      { id: 'p3_bridge', x1: 1055, x2: 1385, dy: -32, style: 'wood_bridge' },
-      // Bậc đá dưới suối để nhảy lên bờ dễ dàng nếu tụt S xuống suối
-      { id: 'p3_stream_step', x1: 1280, x2: 1390, dy: 10, style: 'stone_ledge' },
-      // Bờ gỗ che chắn trên miệng hố bom
-      { id: 'p3_crater_plank', x1: 1850, x2: 1965, dy: -18, style: 'trench_plank' },
+      // Cầu treo Trường Sơn có dây văng và ván gỗ bắc qua vực suối
+      { id: 'p3_bridge', x1: 1040, x2: 1410, dy: -16, style: 'wood_bridge' },
+      // Bậc đá dưới lòng suối để nhảy lên bờ nếu người chơi tụt xuống suối
+      { id: 'p3_stream_step', x1: 1285, x2: 1400, dy: 18, style: 'pacbo_ledge' },
     ],
-    obstacles: [
-      { id: 'obs_fallen_tree', x1: 855, x2: 920, dy: -50, hint: '[W] Vượt thân cây đổ' },
-    ],
+    obstacles: [],
     handoffAtEnd: {
       successorAct: 4,
       caption:
@@ -231,17 +253,25 @@ export const ACTS = [
     },
     zones: [
       { minX: 0, maxX: 980, name: 'Đại lộ Bình minh — Cổng trường Đại học' },
-      { minX: 980, maxX: 2080, name: 'Cầu vượt đô thị & Không gian Đổi mới' },
-      { minX: 2080, maxX: 3100, name: 'Đài tưởng niệm Tổ quốc ghi công' },
+      { minX: 980, maxX: 1980, name: 'Đô thị Hiện đại — Cầu dây văng & Tuyến Metro' },
+      { minX: 1980, maxX: 3100, name: 'Đồi Tùng Bách & Đài tưởng niệm Tổ quốc ghi công' },
     ],
     groundProfile: [
       [0, 0],
-      [2200, 0],
-      // Bậc thềm trang nghiêm dẫn lên Đài tưởng niệm Tổ quốc ghi công
-      [2280, -14],
-      [2360, -28],
-      [2440, -42],
-      [3000, -42],
+      [1980, 0],
+      // Chân đồi Tùng Bách (nơi Ông & Cha hội ngộ cùng Cháu ở localX ~ 2000)
+      [2120, -18],
+      // 5 Bậc tam cấp đá trang nghiêm dẫn lên Đài tưởng niệm Tổ quốc ghi công
+      [2175, -30],
+      [2220, -30],
+      [2238, -42],
+      [2283, -42],
+      [2301, -54],
+      [2346, -54],
+      [2364, -66],
+      [2409, -66],
+      [2427, -78],
+      [3000, -78],
     ],
     platforms: [
       // Cầu vượt đi bộ đa tầng hiện đại (bấm W lên ngắm thành phố, bấm S xuống mặt đường)
@@ -315,7 +345,7 @@ export const INTERACTABLES = [
   {
     id: 'act1_item3',
     act: 1,
-    x: 1880,
+    x: 1810,
     platformId: null,
     iconType: 'ox_cart_granary',
     tag: 'Đầu năm 1945',

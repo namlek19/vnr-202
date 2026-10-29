@@ -1,3 +1,5 @@
+import { drawPropellerFighter } from './artAssets.js';
+
 /**
  * Hệ thống VFX & Không khí Hạt (Limbo / Gris Atmospheric Juice)
  * Hoạt động theo không gian độc lập từng Màn (act = 1..4, localX = 0..3000)
@@ -355,6 +357,24 @@ export class VfxSystem {
 
   // ==================== SPECIAL SPAWNERS ====================
 
+  /** Tàn lửa bay theo bước chạy từ ngọn đuốc rực lửa của Người Ông (Màn 1) */
+  spawnTorchEmber(worldX, worldY, facingDir = 1) {
+    if (this.worldParticles.length > 190) return;
+    this.worldParticles.push({
+      kind: 'spark',
+      x: worldX + (Math.random() - 0.5) * 6,
+      y: worldY + (Math.random() - 0.5) * 6,
+      vx: -facingDir * (22 + Math.random() * 48) + (Math.random() - 0.5) * 14,
+      vy: -26 - Math.random() * 44,
+      gravity: -18,
+      bounce: false,
+      size: 1.4 + Math.random() * 1.9,
+      color: Math.random() < 0.48 ? '#fef08a' : '#f97316',
+      age: 0,
+      life: 0.42 + Math.random() * 0.36,
+    });
+  }
+
   spawnLandDust(worldX, worldY) {
     for (let i = 0; i < 6; i++) {
       this.worldParticles.push({
@@ -506,12 +526,12 @@ export class VfxSystem {
   // ==================== RENDERING ====================
 
   renderHazards(ctx, act, cameraX, width, getGroundY, activeQte) {
-    // 1. Searchlight Cone near Japanese Granary (Act 1, localX ~ 2300)
-    if (act === 1 && !this.granaryLiberated && cameraX + width > 1950 && cameraX < 2620) {
-      const towerWorldX = 2415;
-      const towerX = towerWorldX - cameraX;
-      const towerY = getGroundY(towerWorldX) - 228;
-      const sweepWorldX = 2290 + Math.sin(this.searchlightPhase) * 95;
+    // 1. Primary Searchlight Cone from Japanese Granary Right Watchtower (Act 1, x = 2445)
+    if (act === 1 && !this.granaryLiberated && cameraX + width > 1860 && cameraX < 2640) {
+      const towerWorldX = 2445;
+      const towerX = towerWorldX - cameraX - 16;
+      const towerY = getGroundY(towerWorldX) - 236;
+      const sweepWorldX = 2195 + Math.sin(this.searchlightPhase) * 145;
       const sweepCenterX = sweepWorldX - cameraX;
       const sweepGroundY = getGroundY(sweepWorldX);
 
@@ -524,8 +544,8 @@ export class VfxSystem {
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(towerX, towerY);
-      ctx.lineTo(sweepCenterX - 72, sweepGroundY);
-      ctx.lineTo(sweepCenterX + 72, sweepGroundY);
+      ctx.lineTo(sweepCenterX - 68, sweepGroundY);
+      ctx.lineTo(sweepCenterX + 68, sweepGroundY);
       ctx.closePath();
       ctx.fill();
 
@@ -547,33 +567,36 @@ export class VfxSystem {
       ctx.restore();
     }
 
-    // 2. Bomber silhouettes
+    // 2. Aircraft / Bomber silhouettes (Act 2: French propeller fighter-bomber; Act 3: Jet bomber)
     ctx.save();
     for (const b of this.bombers) {
       const sx = b.x - cameraX;
-      ctx.save();
-      ctx.translate(sx, b.y);
-      ctx.scale(b.dir < 0 ? -1 : 1, 1);
+      if (act === 2) {
+        drawPropellerFighter(ctx, sx, b.y, b.dir, 0.96, this.clock);
+      } else {
+        ctx.save();
+        ctx.translate(sx, b.y);
+        ctx.scale(b.dir < 0 ? -1 : 1, 1);
 
-      ctx.fillStyle = 'rgba(10, 9, 12, 0.88)';
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 42, 6.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.fillStyle = 'rgba(10, 9, 12, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(48, 1);
+        ctx.quadraticCurveTo(16, -7, -44, -2);
+        ctx.lineTo(-52, -16);
+        ctx.lineTo(-36, -2);
+        ctx.lineTo(-46, 4);
+        ctx.quadraticCurveTo(14, 7, 48, 1);
+        ctx.fill();
 
-      ctx.beginPath();
-      ctx.moveTo(-8, -2);
-      ctx.lineTo(-22, -18);
-      ctx.lineTo(8, -2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(-34, -2);
-      ctx.lineTo(-44, -16);
-      ctx.lineTo(-26, -2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+        ctx.beginPath();
+        ctx.moveTo(6, -1);
+        ctx.lineTo(-18, -19);
+        ctx.lineTo(-26, -17);
+        ctx.lineTo(-8, 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     // 3. Falling bombs + red target marker

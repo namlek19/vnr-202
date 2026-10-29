@@ -208,6 +208,41 @@ const finaleState = {
   overlayShown: false,
 };
 
+// Act 4 Multi-Generational Living Companions (Người Ông tuổi già & Người Cha cựu chiến binh)
+const companionsState = {
+  joined: false,
+  captionShown: false,
+  alpha: 0,
+  elderX: 1930,
+  elderY: baseGroundY,
+  elderFacing: 1,
+  elderSpeedRatio: 0,
+  elderWalkCycle: 0,
+  fatherX: 1965,
+  fatherY: baseGroundY,
+  fatherFacing: 1,
+  fatherSpeedRatio: 0,
+  fatherWalkCycle: 0,
+  sharedPose: null,
+};
+
+function resetCompanionsState() {
+  companionsState.joined = false;
+  companionsState.captionShown = false;
+  companionsState.alpha = 0;
+  companionsState.elderX = 1930;
+  companionsState.elderY = baseGroundY;
+  companionsState.elderFacing = 1;
+  companionsState.elderSpeedRatio = 0;
+  companionsState.elderWalkCycle = 0;
+  companionsState.fatherX = 1965;
+  companionsState.fatherY = baseGroundY;
+  companionsState.fatherFacing = 1;
+  companionsState.fatherSpeedRatio = 0;
+  companionsState.fatherWalkCycle = 0;
+  companionsState.sharedPose = null;
+}
+
 // ==================== RESPONSIVE DEVICE, ORIENTATION & CAMERA SCALE ====================
 function detectTouchCapability() {
   return (
@@ -651,7 +686,7 @@ function handleQteActionInput(inputCode) {
     if (activeQte.id === 'qte_1a') {
       sound.playHammerHit(activeQte.mashCount);
       vfx.triggerShake(9, 0.2);
-      vfx.spawnCelebrationBurst(2325, getGroundY(2325) - 60, 16);
+      vfx.spawnCelebrationBurst(2335, getGroundY(2335) - 60, 16);
     } else if (activeQte.id === 'qte_3b') {
       tankProgress = activeQte.mashCount / step.targetCount;
       sound.playQteHit(activeQte.mashCount);
@@ -704,10 +739,10 @@ function completeActiveQte() {
       vfx.setGranaryLiberated(true);
       sound.playQteVictory();
       sound.playExplosion(0.7);
-      vfx.spawnGrainBurst(2325, getGroundY(2325));
+      vfx.spawnGrainBurst(2335, getGroundY(2335));
       vfx.triggerFlash(0.82, '#fef08a', 1.7);
       vfx.triggerShake(18, 0.5);
-      snapPlayerToSurface(2375);
+      snapPlayerToSurface(2385);
       break;
     }
     case 'independence_dawn': {
@@ -724,10 +759,10 @@ function completeActiveQte() {
     case 'trench_blast': {
       sound.playExplosion(1.2);
       sound.playQteVictory();
-      vfx.spawnExplosion(2350, getGroundY(2350), 1.3);
+      vfx.spawnExplosion(2355, getGroundY(2355), 1.3);
       vfx.triggerFlash(0.78, '#fed7aa', 1.85);
       vfx.triggerShake(20, 0.52);
-      snapPlayerToSurface(2450, 'p2_trench_plank2');
+      snapPlayerToSurface(2452);
       player.pose = 'leap_trench';
       player.poseTimer = 0;
       player.poseHoldDuration = 0.85;
@@ -736,7 +771,7 @@ function completeActiveQte() {
     case 'dien_bien_victory': {
       sound.playExplosion(1.1);
       sound.playQteVictory();
-      vfx.spawnExplosion(2680, baseGroundY - 56, 1.2);
+      vfx.spawnExplosion(2680, baseGroundY - 54, 1.2);
       vfx.spawnCelebrationBurst(2690, baseGroundY - 145, 95);
       vfx.triggerFlash(0.9, '#fef08a', 1.35);
       vfx.triggerShake(22, 0.58);
@@ -849,6 +884,7 @@ function clearTransientOverlays() {
 function beginActFromLeft(actId) {
   currentAct = actId;
   autoSeekItem = null;
+  resetCompanionsState();
   updateDrawerActiveState(actId);
   vfx.clearSceneParticles();
   renderer.resetScarfTrail();
@@ -874,6 +910,7 @@ function beginActFromLeft(actId) {
 function beginActFromRight(actId) {
   currentAct = actId;
   autoSeekItem = null;
+  resetCompanionsState();
   updateDrawerActiveState(actId);
   vfx.clearSceneParticles();
   renderer.resetScarfTrail();
@@ -1982,25 +2019,108 @@ function gameLoop(now) {
     }
   }
 
-  // Act 4 Finale Event (localX = 2560): Đài tưởng niệm Tổ quốc ghi công
+  // Act 1 Blazing Torch trailing embers along footsteps
+  if (
+    gameStarted &&
+    (player.costumeOverride || currentAct) === 1 &&
+    player.pose !== 'hammer' &&
+    player.pose !== 'flag_raise'
+  ) {
+    const movingFast = Math.abs(player.vx) > 35;
+    if (Math.random() < (movingFast ? 0.58 : 0.14)) {
+      const dir = player.facing || 1;
+      vfx.spawnTorchEmber(player.x + dir * 24, player.y - 78, dir);
+    }
+  }
+
+  // Act 4 Multi-Generational Companions (x >= 2000 / global 11000) & Finale Monument (localX = 2560)
   if (gameStarted && currentAct === 4 && !transitionState.active) {
+    // 1. Trigger & animate Elder Grandfather + Veteran Father walking alive alongside Grandchild
+    if (player.x >= 2000) {
+      if (!companionsState.joined) {
+        companionsState.joined = true;
+        if (companionsState.alpha <= 0.02) {
+          companionsState.elderX = player.x - 68;
+          companionsState.fatherX = player.x - 34;
+        }
+        if (!companionsState.captionShown) {
+          companionsState.captionShown = true;
+          sound.playHandoffChime();
+          showTemporaryCaption(
+            'Dưới chân đồi Tùng Bách, Ông và Cha cùng sánh bước bên Cháu tiến lên Đài tưởng niệm...',
+            4000
+          );
+        }
+      }
+      companionsState.alpha = Math.min(1, companionsState.alpha + rawDt * 1.15);
+    } else if (player.x < 1920) {
+      companionsState.joined = false;
+      companionsState.alpha = Math.max(0, companionsState.alpha - rawDt * 1.4);
+    }
+
+    if (companionsState.alpha > 0.01) {
+      const targetFatherX = Math.min(FINALE_EVENT.x - 94, player.x - 34);
+      const targetElderX = Math.min(FINALE_EVENT.x - 130, player.x - 68);
+
+      const prevFatherX = companionsState.fatherX;
+      const prevElderX = companionsState.elderX;
+
+      const followRate = Math.min(1, rawDt * 7.5);
+      companionsState.fatherX += (targetFatherX - companionsState.fatherX) * followRate;
+      companionsState.elderX += (targetElderX - companionsState.elderX) * (followRate * 0.92);
+
+      const fatherVx = (companionsState.fatherX - prevFatherX) / Math.max(0.001, rawDt);
+      const elderVx = (companionsState.elderX - prevElderX) / Math.max(0.001, rawDt);
+
+      companionsState.fatherSpeedRatio = Math.min(1, Math.abs(fatherVx) / 260);
+      companionsState.elderSpeedRatio = Math.min(1, Math.abs(elderVx) / 230);
+
+      if (companionsState.fatherSpeedRatio > 0.05) {
+        companionsState.fatherFacing = fatherVx >= 0 ? 1 : -1;
+        companionsState.fatherWalkCycle += rawDt * (3.5 + companionsState.fatherSpeedRatio * 6.8);
+      } else {
+        companionsState.fatherWalkCycle = 0;
+        if (player.x >= FINALE_EVENT.x - 180) companionsState.fatherFacing = 1;
+      }
+
+      if (companionsState.elderSpeedRatio > 0.05) {
+        companionsState.elderFacing = elderVx >= 0 ? 1 : -1;
+        companionsState.elderWalkCycle += rawDt * (3.2 + companionsState.elderSpeedRatio * 5.8);
+      } else {
+        companionsState.elderWalkCycle = 0;
+        if (player.x >= FINALE_EVENT.x - 180) companionsState.elderFacing = 1;
+      }
+
+      companionsState.fatherY = getGroundY(companionsState.fatherX);
+      companionsState.elderY = getGroundY(companionsState.elderX);
+      companionsState.sharedPose = player.pose === 'bow_incense' ? 'bow_incense' : null;
+      if (companionsState.sharedPose === 'bow_incense') {
+        companionsState.fatherFacing = 1;
+        companionsState.elderFacing = 1;
+      }
+    }
+
+    // 2. Incense Offering & 6 Fallen Comrades Military Salute at Monument (localX = 2560)
     if (!finaleState.completed) {
       const nearMonument = Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius;
       incenseHud.classList.toggle('hidden', !nearMonument || modalState.open);
 
       if (nearMonument && !modalState.open) {
         const isHoldingIncense = keysDown.has('KeyF') || incenseHoldPointers.size > 0;
-        const altarX = FINALE_EVENT.x - 60;
-        const altarTopY = getGroundY(FINALE_EVENT.x) - 82;
+        const altarX = FINALE_EVENT.x - 58;
+        const altarTopY = getGroundY(FINALE_EVENT.x) - 78;
 
         if (isHoldingIncense) {
           player.pose = 'bow_incense';
           player.facing = 1;
+          companionsState.sharedPose = 'bow_incense';
+          companionsState.fatherFacing = 1;
+          companionsState.elderFacing = 1;
           finaleState.holdProgress = Math.min(
             1,
             finaleState.holdProgress + rawDt / FINALE_EVENT.holdDuration
           );
-          vfx.spawnIncenseSmoke(altarX, altarTopY, 0.5 + finaleState.holdProgress * 0.9);
+          vfx.spawnIncenseSmoke(altarX, altarTopY, 0.55 + finaleState.holdProgress * 0.95);
           sound.updateIncenseCharge(finaleState.holdProgress, true);
 
           if (finaleState.holdProgress >= 1) {
@@ -2027,12 +2147,15 @@ function gameLoop(now) {
         sound.updateIncenseCharge(0, false);
       }
     } else {
-      const altarX = FINALE_EVENT.x - 60;
-      const altarTopY = getGroundY(FINALE_EVENT.x) - 82;
+      const altarX = FINALE_EVENT.x - 58;
+      const altarTopY = getGroundY(FINALE_EVENT.x) - 78;
       player.pose = 'bow_incense';
       player.facing = 1;
-      vfx.spawnIncenseSmoke(altarX, altarTopY, 1.1);
-      finaleState.spiritsAlpha = Math.min(1, finaleState.spiritsAlpha + rawDt * 0.75);
+      companionsState.sharedPose = 'bow_incense';
+      companionsState.fatherFacing = 1;
+      companionsState.elderFacing = 1;
+      vfx.spawnIncenseSmoke(altarX, altarTopY, 1.15);
+      finaleState.spiritsAlpha = Math.min(1, finaleState.spiritsAlpha + rawDt * 0.72);
       finaleState.postTimer += rawDt;
 
       if (!finaleState.overlayShown && finaleState.postTimer >= FINALE_EVENT.spiritViewingDelay) {
@@ -2066,6 +2189,7 @@ function gameLoop(now) {
       cameraX,
       cameraZoom,
       player,
+      companionsState,
       interactables: interactablesState,
       nearbyInteractable,
       nearbyObstacleHint,
