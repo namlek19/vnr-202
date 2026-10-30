@@ -101,16 +101,8 @@
           <div id="joystick-knob" class="joystick-knob"></div>
         </div>
 
-        <!-- Góc dưới phải: Nút Nhảy nhanh (▲) & Nút Ngồi/Tụt xuống (▼) song song -->
+        <!-- Góc dưới phải: Cụm nút Hành động TẤN CÔNG [F] + Nhảy (▲) & Tụt tầng (▼) -->
         <div class="touch-action-cluster">
-          <button
-            type="button"
-            id="btn-touch-jump"
-            class="touch-action-btn touch-jump-btn"
-            aria-label="Nhảy lên"
-          >
-            <span>▲</span>
-          </button>
           <button
             type="button"
             id="btn-touch-drop"
@@ -119,34 +111,23 @@
           >
             <span>▼</span>
           </button>
-        </div>
-      </div>
-
-      <!-- Giao diện QTE Slow-motion Tối giản -->
-      <section id="qte-overlay" class="qte-overlay hidden" aria-live="assertive">
-        <div class="qte-header">
-          <span class="qte-kicker">KHOẢNH KHẮC LỊCH SỬ</span>
-          <h3 id="qte-title">Phá kho thóc Nhật</h3>
-          <p id="qte-prompt">Bấm [SPACE] đúng nhịp vòng sáng!</p>
-        </div>
-
-        <div id="qte-ring-stage" class="qte-ring-stage" title="Bấm phím yêu cầu hoặc chạm trực tiếp">
-          <div id="qte-target-zone" class="qte-target-zone"></div>
-          <div id="qte-shrinking-ring" class="qte-shrinking-ring"></div>
-          <svg class="qte-mash-svg" viewBox="0 0 160 160">
-            <circle class="qte-mash-bg" cx="80" cy="80" r="66" />
-            <circle id="qte-mash-progress" class="qte-mash-fg" cx="80" cy="80" r="66" />
-          </svg>
-          <div id="qte-key-cap" class="qte-key-cap">SPACE</div>
-        </div>
-
-        <div id="qte-substatus" class="qte-substatus">Canh vòng sáng chạm viền vàng</div>
-      </section>
-
-      <!-- Màn hình khích lệ Fail-safe 1.5 giây (Không bao giờ chết) -->
-      <div id="failsafe-overlay" class="failsafe-overlay hidden">
-        <div class="failsafe-card">
-          <p id="failsafe-text">Giữ vững ý chí cách mạng! Hãy thử lại!</p>
+          <button
+            type="button"
+            id="btn-touch-attack"
+            class="touch-action-btn touch-attack-btn"
+            aria-label="Tấn công hoặc Hành động [F]"
+          >
+            <span class="attack-btn-main">TẤN CÔNG</span>
+            <span class="attack-btn-sub">[F]</span>
+          </button>
+          <button
+            type="button"
+            id="btn-touch-jump"
+            class="touch-action-btn touch-jump-btn"
+            aria-label="Nhảy lên"
+          >
+            <span>▲</span>
+          </button>
         </div>
       </div>
 
@@ -242,7 +223,7 @@
             qua chiến lũy Hà Nội và hào sâu Điện Biên, vượt đại ngàn Trường Sơn đến bình minh hòa bình hôm nay.
           </p>
           <p id="intro-controls-line" class="intro-subtle-keys">
-            Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span>
+            Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Khám phá <span>E</span> • Tấn công / Hành động <span>F / J</span>
           </p>
           <button type="button" id="btn-start-game" class="primary-clean-btn intro-start-btn">
             <span>Bước vào hành trình</span>

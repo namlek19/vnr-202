@@ -397,45 +397,83 @@ kbd {
   box-shadow: 0 0 18px rgba(253, 224, 71, 0.45);
 }
 
-/* Right-hand Quick Jump (▲) & Drop-through (▼) buttons */
+/* Right-hand Action Cluster: Tụt tầng (▼) + TẤN CÔNG [F] + Nhảy (▲) */
 .touch-action-cluster {
   position: absolute;
-  right: max(22px, calc(env(safe-area-inset-right, 0px) + 16px));
-  bottom: calc(50px + env(safe-area-inset-bottom, 0px));
+  right: max(20px, calc(env(safe-area-inset-right, 0px) + 16px));
+  bottom: calc(48px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: 11px;
   pointer-events: auto;
   touch-action: none;
 }
 
 .touch-action-btn {
   border-radius: 50%;
-  background: rgba(10, 15, 26, 0.46);
+  background: rgba(10, 15, 26, 0.48);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1.2px solid rgba(255, 255, 255, 0.2);
-  color: rgba(254, 243, 199, 0.9);
+  border: 1.2px solid rgba(255, 255, 255, 0.22);
+  color: rgba(254, 243, 199, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   touch-action: none;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
-  transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, border-color 0.15s ease, background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .touch-jump-btn {
-  width: 56px;
-  height: 56px;
-  font-size: 1.08rem;
-  margin-bottom: 10px;
+  width: 54px;
+  height: 54px;
+  font-size: 1.06rem;
+  margin-bottom: 18px;
 }
 
 .touch-drop-btn {
-  width: 46px;
-  height: 46px;
-  font-size: 0.92rem;
+  width: 44px;
+  height: 44px;
+  font-size: 0.9rem;
+}
+
+/* Nút tròn đỏ/vàng nổi bật TẤN CÔNG [F] */
+.touch-attack-btn {
+  width: 70px;
+  height: 70px;
+  flex-direction: column;
+  gap: 1px;
+  background: radial-gradient(
+    circle at 34% 28%,
+    rgba(239, 68, 68, 0.92) 0%,
+    rgba(185, 28, 28, 0.94) 68%,
+    rgba(127, 29, 29, 0.96) 100%
+  );
+  border: 2px solid #fde047;
+  color: #fef9c3;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.52),
+    0 0 18px rgba(234, 179, 8, 0.35);
+}
+
+.attack-btn-main {
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+}
+
+.attack-btn-sub {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fde047;
+  line-height: 1.05;
 }
 
 .touch-action-btn:active,
@@ -444,6 +482,19 @@ kbd {
   background: rgba(253, 230, 138, 0.24);
   border-color: rgba(253, 230, 138, 0.85);
   color: #ffffff;
+}
+
+.touch-attack-btn:active,
+.touch-attack-btn.pressed {
+  transform: scale(0.91);
+  background: radial-gradient(
+    circle at 35% 30%,
+    #f59e0b 0%,
+    #dc2626 70%,
+    #991b1b 100%
+  );
+  border-color: #ffffff;
+  box-shadow: 0 0 26px rgba(253, 224, 71, 0.75);
 }
 
 /* ==================== MINIMALIST BOTTOM BAR ==================== */
@@ -644,176 +695,6 @@ kbd {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-}
-
-/* ==================== QTE OVERLAY (CLEAN MINIMAL) ==================== */
-.qte-overlay {
-  position: fixed;
-  top: 46%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  z-index: 35;
-  text-align: center;
-  width: max-content;
-  max-width: calc(100vw - 28px);
-}
-
-.qte-header {
-  background: rgba(9, 13, 22, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 10px 22px;
-  border-radius: 12px;
-  max-width: min(540px, calc(100vw - 32px));
-  pointer-events: none;
-}
-
-.qte-kicker {
-  display: block;
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-#qte-title {
-  font-family: var(--font-serif);
-  font-size: 1.18rem;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 4px;
-}
-
-#qte-prompt {
-  font-size: 0.86rem;
-  color: var(--ivory-warm);
-}
-
-.qte-ring-stage {
-  position: relative;
-  width: 164px;
-  height: 164px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  touch-action: none;
-}
-
-.qte-target-zone {
-  position: absolute;
-  width: 102px;
-  height: 102px;
-  border-radius: 50%;
-  border: 3px solid rgba(253, 230, 138, 0.78);
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
-  pointer-events: none;
-}
-
-.qte-target-zone.in-sweet-spot {
-  border-color: #86efac;
-  box-shadow: 0 0 22px rgba(134, 239, 172, 0.55);
-}
-
-.qte-shrinking-ring {
-  position: absolute;
-  width: 164px;
-  height: 164px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  pointer-events: none;
-}
-
-.qte-mash-svg {
-  position: absolute;
-  width: 156px;
-  height: 156px;
-  transform: rotate(-90deg);
-  pointer-events: none;
-}
-
-.qte-mash-bg {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.14);
-  stroke-width: 6;
-}
-
-.qte-mash-fg {
-  fill: none;
-  stroke: #fde68a;
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-dasharray: 415;
-  stroke-dashoffset: 415;
-  transition: stroke-dashoffset 0.1s ease;
-}
-
-.qte-key-cap {
-  position: relative;
-  z-index: 2;
-  min-width: 68px;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 8px;
-  background: #fef3c7;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.06em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
-}
-
-body.touch-mode .qte-key-cap {
-  border-radius: 999px;
-  background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
-  padding: 0 16px;
-  font-size: 0.92rem;
-  letter-spacing: 0.08em;
-}
-
-.qte-substatus {
-  font-size: 0.78rem;
-  color: rgba(248, 250, 252, 0.8);
-  pointer-events: none;
-}
-
-/* ==================== FAIL-SAFE ENCOURAGEMENT ==================== */
-.failsafe-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 45;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(8, 10, 16, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  animation: gentleFadeIn 0.22s ease forwards;
-}
-
-.failsafe-card {
-  padding: 22px 38px;
-  border-radius: 12px;
-  background: rgba(14, 18, 28, 0.92);
-  border: 1px solid rgba(253, 230, 138, 0.4);
-  text-align: center;
-}
-
-#failsafe-text {
-  font-family: var(--font-serif);
-  font-size: 1.32rem;
-  color: var(--ivory-warm);
 }
 
 /* ==================== MONUMENT INCENSE HOLD HUD ==================== */
@@ -1219,75 +1100,34 @@ body.touch-mode .qte-key-cap {
   }
 
   .touch-action-cluster {
-    bottom: calc(44px + env(safe-area-inset-bottom, 0px));
-    gap: 10px;
-  }
-
-  .touch-jump-btn {
-    width: 48px;
-    height: 48px;
-    font-size: 0.98rem;
-    margin-bottom: 6px;
-  }
-
-  .touch-drop-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 0.84rem;
-  }
-
-  /* Compact QTE Overlay so nothing clips on max-height: 450px */
-  .qte-overlay {
-    top: 45%;
+    bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
   }
 
-  .qte-header {
-    padding: 7px 15px;
+  .touch-jump-btn {
+    width: 46px;
+    height: 46px;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
   }
 
-  .qte-kicker {
-    font-size: 0.58rem;
-    margin-bottom: 2px;
+  .touch-drop-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 0.82rem;
   }
 
-  #qte-title {
-    font-size: 0.98rem;
-    margin-bottom: 2px;
+  .touch-attack-btn {
+    width: 58px;
+    height: 58px;
   }
 
-  #qte-prompt {
-    font-size: 0.76rem;
+  .attack-btn-main {
+    font-size: 0.53rem;
   }
 
-  .qte-ring-stage {
-    width: 124px;
-    height: 124px;
-  }
-
-  .qte-target-zone {
-    width: 78px;
-    height: 78px;
-  }
-
-  .qte-shrinking-ring {
-    width: 124px;
-    height: 124px;
-  }
-
-  .qte-mash-svg {
-    width: 118px;
-    height: 118px;
-  }
-
-  .qte-key-cap {
-    min-width: 58px;
-    height: 34px;
-    font-size: 0.84rem;
-  }
-
-  .qte-substatus {
-    font-size: 0.72rem;
+  .attack-btn-sub {
+    font-size: 0.64rem;
   }
 
   /* Compact Incense HUD */

@@ -663,6 +663,85 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
     ctx.lineTo(15, -43);
     ctx.lineTo(7, -48);
     ctx.stroke();
+  } else if (pose === 'throw_grenade') {
+    // Vung tay ném bom xăng / lựu đạn theo quỹ đạo parabol
+    const throwAngle = -1.75 + Math.min(1, poseTimer * 3.8) * 1.65;
+    ctx.save();
+    ctx.translate(3, -27);
+    ctx.rotate(throwAngle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(18, -8);
+    ctx.stroke();
+    if (poseTimer < 0.16) {
+      ctx.fillStyle = '#ea580c';
+      ctx.beginPath();
+      ctx.arc(21, -10, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  } else if (pose === 'plant_charge') {
+    // Lao tới áp sát đánh bộc phá cứ điểm Điện Biên
+    ctx.beginPath();
+    ctx.moveTo(3, -26);
+    ctx.lineTo(20, -19);
+    ctx.stroke();
+    ctx.fillStyle = '#b91c1c';
+    ctx.fillRect(18, -24, 14, 8);
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(33, -20, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (pose === 'shoot_ak') {
+    // Giương súng AK-47 / súng trường bắn loạt đạn thẳng kèm tia lửa đầu nòng rực sáng!
+    const kick = Math.sin(poseTimer * 42) * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(2, -26);
+    ctx.lineTo(14 - kick, -23);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(9 - kick, -24);
+    ctx.fillStyle = '#7c2d12';
+    ctx.fillRect(-10, -1.5, 9, 4.2);
+    ctx.fillRect(5, -2, 8, 3.6);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-2, -3, 9, 4.5);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(13, -0.8);
+    ctx.lineTo(26, -0.8);
+    ctx.stroke();
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(4, 1.5);
+    ctx.quadraticCurveTo(6, 8, 10, 10.5);
+    ctx.stroke();
+
+    // Bright muzzle flash star
+    if (poseTimer < 0.28) {
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.moveTo(26, -0.8);
+      ctx.lineTo(39, -5.5);
+      ctx.lineTo(34, -0.8);
+      ctx.lineTo(41, 3.8);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  } else if (pose === 'aa_fire' || pose === 'dawn_light') {
+    // Giơ cao tay chỉ huy bắn cao xạ / kích hoạt ánh sáng bình minh Đổi mới
+    ctx.beginPath();
+    ctx.moveTo(3, -27);
+    ctx.lineTo(14, -46);
+    ctx.stroke();
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(15, -49, 4.2, 0, Math.PI * 2);
+    ctx.fill();
   } else if (isAct1) {
     // Màn 1: Cầm ngọn đuốc tre rực lửa giơ phía trước soi đường trong đêm đen!
     const torchBob = Math.sin(walkCycle * 2 + time * 3) * 2.2;
@@ -1110,18 +1189,52 @@ export function drawJapaneseGranaryAndTowers(
   width,
   getGroundY,
   time,
-  liberated
+  liberated,
+  granaryCombat = null
 ) {
-  const gx = 2335 - cameraX;
-  if (gx < -380 || gx > width + 380) return;
+  const shakeX = granaryCombat && !liberated ? granaryCombat.shakeX || 0 : 0;
+  const gx = 2335 - cameraX + shakeX;
+  if (gx < -420 || gx > width + 420) return;
 
   const gy = getGroundY(2335);
   ctx.save();
 
-  // Helper to draw a tall timber watchtower with armed Japanese sentry & rotating searchlight
-  const drawWatchtower = (worldX, phaseOffset) => {
+  // Helper to draw a tall timber watchtower (or collapsed timber wreckage when liberated!)
+  const drawWatchtower = (worldX, phaseOffset, customBeamX = null, beamState = 'normal') => {
     const tx = worldX - cameraX;
     const tgy = getGroundY(worldX);
+
+    if (liberated) {
+      // Tháp canh gỗ đã sụp đổ tan tành trên mặt đất sau khi quần chúng phá kho thóc!
+      ctx.save();
+      ctx.translate(tx, tgy);
+      ctx.strokeStyle = '#141926';
+      ctx.fillStyle = '#0c1018';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(-36, 0);
+      ctx.lineTo(28, -24);
+      ctx.moveTo(-22, -2);
+      ctx.lineTo(38, -14);
+      ctx.moveTo(-14, -22);
+      ctx.lineTo(18, -2);
+      ctx.stroke();
+
+      // Shattered pitched wooden roof tilted on ground
+      ctx.save();
+      ctx.translate(10, -14);
+      ctx.rotate(worldX < 2300 ? -0.42 : 0.48);
+      ctx.beginPath();
+      ctx.moveTo(-28, 0);
+      ctx.lineTo(0, -18);
+      ctx.lineTo(28, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      ctx.restore();
+      return;
+    }
+
     const towerH = 224;
     const deckY = tgy - towerH;
 
@@ -1159,59 +1272,92 @@ export function drawJapaneseGranaryAndTowers(
     ctx.closePath();
     ctx.fill();
 
-    if (!liberated) {
-      // Japanese soldier silhouette standing guard with bayoneted Arisaka rifle!
-      ctx.fillStyle = '#06090f';
-      // Body & helmet
-      ctx.fillRect(tx - 5, deckY - 34, 10, 26);
-      ctx.beginPath();
-      ctx.arc(tx, deckY - 39, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(tx, deckY - 41, 8, 2.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Rifle + glinting bayonet tip
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(tx - 6, deckY - 18);
-      ctx.lineTo(tx - 14, deckY - 46);
-      ctx.stroke();
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(tx - 14, deckY - 46);
-      ctx.lineTo(tx - 17, deckY - 54);
-      ctx.stroke();
+    // Japanese soldier silhouette standing guard with bayoneted Arisaka rifle!
+    ctx.fillStyle = '#06090f';
+    ctx.fillRect(tx - 5, deckY - 34, 10, 26);
+    ctx.beginPath();
+    ctx.arc(tx, deckY - 39, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(tx, deckY - 41, 8, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(tx - 6, deckY - 18);
+    ctx.lineTo(tx - 14, deckY - 46);
+    ctx.stroke();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(tx - 14, deckY - 46);
+    ctx.lineTo(tx - 17, deckY - 54);
+    ctx.stroke();
 
-      // Rotating searchlight lamp housing + secondary volumetric cone
-      const lampX = tx - 16;
-      const lampY = deckY - 12;
-      ctx.fillStyle = '#fef08a';
-      ctx.beginPath();
-      ctx.arc(lampX, lampY, 4.5, 0, Math.PI * 2);
-      ctx.fill();
+    // Rotating searchlight lamp housing + gameplay volumetric cone
+    const lampX = tx - 16;
+    const lampY = deckY - 12;
+    const isWarning = beamState === 'warning';
+    const isSweepRed = beamState === 'sweep_door' || beamState === 'alert';
 
-      const targetWorldX = 2090 + Math.sin(time * 1.35 + phaseOffset) * 145;
-      const targetSx = targetWorldX - cameraX;
-      const targetGy = getGroundY(targetWorldX);
+    ctx.fillStyle = isSweepRed ? '#ef4444' : isWarning ? '#fb923c' : '#fef08a';
+    ctx.beginPath();
+    ctx.arc(lampX, lampY, isWarning || isSweepRed ? 6.2 : 4.8, 0, Math.PI * 2);
+    ctx.fill();
 
-      const coneGrad = ctx.createLinearGradient(lampX, lampY, targetSx, targetGy);
-      coneGrad.addColorStop(0, 'rgba(254, 249, 195, 0.34)');
-      coneGrad.addColorStop(0.7, 'rgba(253, 224, 71, 0.09)');
-      coneGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
-      ctx.fillStyle = coneGrad;
-      ctx.beginPath();
-      ctx.moveTo(lampX, lampY);
-      ctx.lineTo(targetSx - 52, targetGy);
-      ctx.lineTo(targetSx + 52, targetGy);
-      ctx.closePath();
-      ctx.fill();
+    const targetWorldX =
+      customBeamX !== null ? customBeamX : 2090 + Math.sin(time * 1.35 + phaseOffset) * 145;
+    const targetSx = targetWorldX - cameraX;
+    const targetGy = getGroundY(targetWorldX);
+
+    const coneGrad = ctx.createLinearGradient(lampX, lampY, targetSx, targetGy);
+    if (isSweepRed) {
+      coneGrad.addColorStop(0, 'rgba(254, 202, 202, 0.56)');
+      coneGrad.addColorStop(0.65, 'rgba(239, 68, 68, 0.22)');
+      coneGrad.addColorStop(1, 'rgba(220, 38, 38, 0.03)');
+    } else if (isWarning) {
+      const blink = 0.42 + Math.abs(Math.sin(time * 14)) * 0.25;
+      coneGrad.addColorStop(0, `rgba(254, 215, 170, ${blink})`);
+      coneGrad.addColorStop(0.65, 'rgba(249, 115, 22, 0.2)');
+      coneGrad.addColorStop(1, 'rgba(234, 88, 12, 0.03)');
+    } else {
+      coneGrad.addColorStop(0, 'rgba(254, 249, 195, 0.46)');
+      coneGrad.addColorStop(0.7, 'rgba(253, 224, 71, 0.14)');
+      coneGrad.addColorStop(1, 'rgba(253, 224, 71, 0.02)');
     }
+
+    ctx.fillStyle = coneGrad;
+    ctx.beginPath();
+    ctx.moveTo(lampX, lampY);
+    ctx.lineTo(targetSx - 54, targetGy);
+    ctx.lineTo(targetSx + 54, targetGy);
+    ctx.closePath();
+    ctx.fill();
+
+    // Crisp ground light pool so stealth hitbox is 100% readable!
+    const poolGrad = ctx.createRadialGradient(targetSx, targetGy, 4, targetSx, targetGy, 58);
+    poolGrad.addColorStop(
+      0,
+      isSweepRed
+        ? 'rgba(239, 68, 68, 0.44)'
+        : isWarning
+        ? 'rgba(249, 115, 22, 0.4)'
+        : 'rgba(254, 240, 138, 0.36)'
+    );
+    poolGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+    ctx.fillStyle = poolGrad;
+    ctx.beginPath();
+    ctx.ellipse(targetSx, targetGy, 56, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
   };
 
   // Tower 1 (Left of Granary, sweeping over the 3 haystacks)
-  drawWatchtower(2155, 1.8);
+  drawWatchtower(
+    2155,
+    1.8,
+    granaryCombat ? granaryCombat.beam1X : null,
+    granaryCombat ? granaryCombat.beam1State : 'normal'
+  );
 
   // Heavy Brick Japanese Granary (x = 2335)
   ctx.fillStyle = '#141114';
@@ -1291,8 +1437,13 @@ export function drawJapaneseGranaryAndTowers(
     ctx.fillRect(gx - 6, gy - 62, 12, 14);
   }
 
-  // Tower 2 (Right of Granary)
-  drawWatchtower(2445, 0);
+  // Tower 2 (Right of Granary, sweeping over Granary door with orange/red warning pause)
+  drawWatchtower(
+    2445,
+    0,
+    granaryCombat ? granaryCombat.beam2X : null,
+    granaryCombat ? granaryCombat.beam2State : 'normal'
+  );
 
   ctx.restore();
 }
@@ -1539,7 +1690,8 @@ export function drawDienBienFortress(
   baseGroundY,
   getGroundY,
   completedQtes,
-  time
+  time,
+  dienBienCombat = null
 ) {
   if (cameraX + width < 2000) return;
   ctx.save();
@@ -1586,26 +1738,62 @@ export function drawDienBienFortress(
   }
 
   // 3. Lô cốt bê tông Pháp có lỗ châu mai & bao cát chất xung quanh (x = 2592)
-  const pbX = 2592 - cameraX;
+  const pbShake = dienBienCombat ? dienBienCombat.shakeX || 0 : 0;
+  const pbDestroyed =
+    completedQtes.has('qte_2a') || Boolean(dienBienCombat && dienBienCombat.pillboxDestroyed);
+  const pbX = 2592 - cameraX + pbShake;
   if (pbX > -160 && pbX < width + 160) {
     const gy = getGroundY(2592);
-    ctx.fillStyle = '#292524';
-    ctx.beginPath();
-    ctx.moveTo(pbX - 42, gy + 2);
-    ctx.lineTo(pbX - 36, gy - 44);
-    ctx.lineTo(pbX + 36, gy - 44);
-    ctx.lineTo(pbX + 42, gy + 2);
-    ctx.closePath();
-    ctx.fill();
+    if (pbDestroyed) {
+      // Lô cốt bê tông đã bị bộc phá đánh sập thành đống gạch vụn bốc khói!
+      ctx.fillStyle = '#241e1c';
+      ctx.beginPath();
+      ctx.moveTo(pbX - 44, gy + 2);
+      ctx.lineTo(pbX - 28, gy - 16);
+      ctx.lineTo(pbX - 8, gy - 10);
+      ctx.lineTo(pbX + 12, gy - 20);
+      ctx.lineTo(pbX + 40, gy + 2);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#292524';
+      ctx.beginPath();
+      ctx.moveTo(pbX - 42, gy + 2);
+      ctx.lineTo(pbX - 36, gy - 44);
+      ctx.lineTo(pbX + 36, gy - 44);
+      ctx.lineTo(pbX + 42, gy + 2);
+      ctx.closePath();
+      ctx.fill();
 
-    // Dark firing embrasure slit (lỗ châu mai)
-    ctx.fillStyle = '#050404';
-    ctx.fillRect(pbX - 24, gy - 28, 32, 8);
+      // Dark firing embrasure slit (lỗ châu mai) + Red Blinking MG Warning Light!
+      ctx.fillStyle = '#050404';
+      ctx.fillRect(pbX - 24, gy - 32, 32, 8);
 
-    // Stacked sandbags around pillbox base
-    ctx.fillStyle = '#3f2e21';
-    for (let sb = -44; sb <= 26; sb += 18) {
-      fillRoundedRect(ctx, pbX + sb, gy - 11, 17, 9, 3.5);
+      if (dienBienCombat && (dienBienCombat.mgWarning || dienBienCombat.mgFiring)) {
+        const blinkOn =
+          dienBienCombat.mgFiring || Math.sin(time * 24) > -0.2;
+        if (blinkOn) {
+          const warnGlow = ctx.createRadialGradient(pbX - 18, gy - 28, 2, pbX - 18, gy - 28, 30);
+          warnGlow.addColorStop(0, 'rgba(239, 68, 68, 0.92)');
+          warnGlow.addColorStop(0.55, 'rgba(220, 38, 38, 0.38)');
+          warnGlow.addColorStop(1, 'rgba(220, 38, 38, 0)');
+          ctx.fillStyle = warnGlow;
+          ctx.beginPath();
+          ctx.arc(pbX - 18, gy - 28, 30, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = dienBienCombat.mgFiring ? '#fef08a' : '#ef4444';
+          ctx.beginPath();
+          ctx.arc(pbX - 18, gy - 28, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Stacked sandbags around pillbox base
+      ctx.fillStyle = '#3f2e21';
+      for (let sb = -44; sb <= 26; sb += 18) {
+        fillRoundedRect(ctx, pbX + sb, gy - 11, 17, 9, 3.5);
+      }
     }
   }
 
@@ -2001,10 +2189,19 @@ export function drawTruongSonTruckConvoy(ctx, cameraX, width, baseGroundY, time,
 /**
  * Khẩu đội Pháo cao xạ phòng không 37mm đặt trên mỏm đồi cao (x = 1728, dy = -82)
  */
-export function drawAntiAircraft37mmBattery(ctx, cameraX, width, getGroundY, time) {
-  const sx = 1728 - cameraX;
+export function drawAntiAircraft37mmBattery(
+  ctx,
+  cameraX,
+  width,
+  getGroundY,
+  time,
+  worldX = 1728,
+  recoil = 0,
+  aimAngle = null
+) {
+  const sx = worldX - cameraX;
   if (sx < -220 || sx > width + 220) return;
-  const gy = getGroundY(1728); // Hilltop at baseGroundY - 82!
+  const gy = getGroundY(worldX); // Hilltop at baseGroundY - 82!
 
   ctx.save();
   ctx.translate(sx, gy);
@@ -2031,19 +2228,18 @@ export function drawAntiAircraft37mmBattery(ctx, cameraX, width, getGroundY, tim
 
   // 2 Anti-Aircraft Gunners wearing steel helmets & foliage camo rings
   ctx.fillStyle = '#071116';
-  // Left gunner (azimuth tracker)
   ctx.fillRect(-31, -38, 12, 22);
   ctx.beginPath();
   ctx.arc(-25, -44, 6.5, 0, Math.PI * 2);
   ctx.fill();
-  // Right gunner (elevation sight)
   ctx.fillRect(19, -38, 12, 22);
   ctx.beginPath();
   ctx.arc(25, -44, 6.5, 0, Math.PI * 2);
   ctx.fill();
 
   // Twin 37mm Anti-Aircraft Barrels + Sloped Armor Shield tracking skyward!
-  const skyTrackAngle = -0.82 + Math.sin(time * 1.5) * 0.1; // Pointing ~47 deg into the sky!
+  const skyTrackAngle =
+    aimAngle !== null ? aimAngle : -0.82 + Math.sin(time * 1.5 + worldX * 0.01) * 0.1;
   ctx.save();
   ctx.translate(0, -32);
   ctx.rotate(skyTrackAngle);
@@ -2058,33 +2254,47 @@ export function drawAntiAircraft37mmBattery(ctx, cameraX, width, getGroundY, tim
   ctx.closePath();
   ctx.fill();
 
+  const kick = recoil * 11;
   // Long twin 37mm cannon barrels + conical flash suppressors
   ctx.strokeStyle = '#1e3a44';
   ctx.lineWidth = 4.2;
   ctx.beginPath();
-  ctx.moveTo(0, -4);
-  ctx.lineTo(58, -4);
-  ctx.moveTo(0, 3);
-  ctx.lineTo(54, 3);
+  ctx.moveTo(-kick, -4);
+  ctx.lineTo(58 - kick, -4);
+  ctx.moveTo(-kick, 3);
+  ctx.lineTo(54 - kick, 3);
   ctx.stroke();
 
   // Rim highlight along upper 37mm barrel
   ctx.strokeStyle = 'rgba(253, 224, 71, 0.42)';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(6, -5.5);
-  ctx.lineTo(58, -5.5);
+  ctx.moveTo(6 - kick, -5.5);
+  ctx.lineTo(58 - kick, -5.5);
   ctx.stroke();
 
   // Flash hider cone
   ctx.fillStyle = '#0f2027';
   ctx.beginPath();
-  ctx.moveTo(58, -6.5);
-  ctx.lineTo(65, -8.5);
-  ctx.lineTo(65, -0.5);
-  ctx.lineTo(58, -2);
+  ctx.moveTo(58 - kick, -6.5);
+  ctx.lineTo(65 - kick, -8.5);
+  ctx.lineTo(65 - kick, -0.5);
+  ctx.lineTo(58 - kick, -2);
   ctx.closePath();
   ctx.fill();
+
+  // Blazing twin-37mm muzzle flash when firing!
+  if (recoil > 0.35) {
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.moveTo(65 - kick, -4.5);
+    ctx.lineTo(92 - kick, -12);
+    ctx.lineTo(82 - kick, -2);
+    ctx.lineTo(94 - kick, 5);
+    ctx.lineTo(65 - kick, 2);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   ctx.restore();
   ctx.restore();
@@ -2255,11 +2465,13 @@ export function drawIndependencePalaceDetailed(
   won3B,
   activeQte,
   tankProgress,
-  time
+  time,
+  tank390Override = null
 ) {
   const gateX = 2645 - cameraX;
   const palaceX = 2765 - cameraX;
-  if (palaceX < -320 || gateX > width + 320) return;
+  const tankLeftCheck = tank390Override ? tank390Override.x - cameraX : gateX;
+  if (palaceX < -320 || Math.min(gateX, tankLeftCheck) > width + 320) return;
 
   const pgy = getGroundY(2700);
   ctx.save();
@@ -2319,6 +2531,8 @@ export function drawIndependencePalaceDetailed(
   if (won3B) {
     // Crushed flat on the courtyard ground after Tank 390 rams through!
     ctx.rotate(1.36);
+  } else if (tank390Override && tank390Override.gateCrushRatio > 0) {
+    ctx.rotate(tank390Override.gateCrushRatio * 1.36);
   } else if (activeQte && activeQte.id === 'qte_3b') {
     ctx.rotate(tankProgress * 0.52);
   }
@@ -2343,9 +2557,15 @@ export function drawIndependencePalaceDetailed(
   }
   ctx.restore();
 
-  // 3. Historic Tank 390 charging / triumphant through the gate!
-  const tankWorldX = won3B ? 2690 : 2475 + tankProgress * 165;
-  const isTankMoving = Boolean((activeQte && activeQte.id === 'qte_3b') && !won3B);
+  // 3. Historic Tank 390 escort / charging / triumphant through the gate!
+  const tankWorldX = tank390Override
+    ? tank390Override.x
+    : won3B
+    ? 2690
+    : 2475 + tankProgress * 165;
+  const isTankMoving = tank390Override
+    ? Boolean(tank390Override.isMoving)
+    : Boolean(activeQte && activeQte.id === 'qte_3b' && !won3B);
   drawTank390Detailed(ctx, tankWorldX - cameraX, getGroundY(tankWorldX), isTankMoving, time);
 
   ctx.restore();
@@ -3083,6 +3303,270 @@ export function drawDetailedPlatformSurface(ctx, p, sx1, sx2, py, getGroundY, ac
       break;
     }
   }
+
+  ctx.restore();
+}
+
+// ============================================================================
+// 7. ĐOÀN NPC ĐỒNG ĐỘI & MỤC TIÊU TÁC CHIẾN IN-WORLD MINIGAMES
+// ============================================================================
+
+/**
+ * Vẽ NPC quần chúng / đồng đội nối đuôi theo nhân vật chính:
+ * - Màn 1: Nông dân / tự vệ cầm gậy tre ('staff'), búa sắt ('hammer'), cờ đỏ ('flag')
+ * - Màn 2: Chiến sĩ Vệ quốc đoàn cùng ném bom xăng / đánh bộc phá / phất cờ
+ * - Màn 3: Chiến sĩ Giải phóng quân cầm AK-47 nhả đạn cùng nhân vật chính
+ */
+export function drawFollowerComrade(ctx, sx, footY, act, variantIndex, anim, time) {
+  const {
+    facing = 1,
+    walkCycle = 0,
+    speedRatio = 0,
+    onGround = true,
+    attackPose = null,
+    attackTimer = 0,
+    stealthHidden = false,
+  } = anim;
+
+  const scale = 0.91 + (variantIndex % 3) * 0.025;
+  ctx.save();
+  if (stealthHidden) {
+    ctx.globalAlpha = 0.42;
+  }
+
+  if (act === 2 || act === 3) {
+    ctx.translate(sx, footY);
+    ctx.scale(scale, scale);
+    drawDetailedCharacter(
+      ctx,
+      0,
+      0,
+      act,
+      {
+        facing,
+        walkCycle,
+        speedRatio,
+        onGround,
+        vy: 0,
+        landingSquash: stealthHidden ? 0.45 : 0,
+        pose: attackPose,
+        poseTimer: attackTimer,
+        wearingHat: true,
+      },
+      time + variantIndex * 0.4
+    );
+    ctx.restore();
+    return;
+  }
+
+  // Màn 1: Nông dân / Tự vệ mặc áo nâu/áo bà ba, đội nón lá hoặc vấn khăn, cầm gậy / búa / cờ đỏ!
+  const weaponType = ['staff', 'hammer', 'flag'][variantIndex % 3];
+  const bob = onGround && speedRatio > 0.05 ? Math.abs(Math.sin(walkCycle * 2)) * 3.2 : 0;
+  const crouchDrop = stealthHidden ? 12 : 0;
+
+  ctx.translate(sx, footY);
+  ctx.scale(facing * scale, scale);
+  ctx.translate(0, -bob + crouchDrop);
+
+  // Legs
+  const stride = speedRatio > 0.05 ? Math.sin(walkCycle) * 0.65 : 0;
+  ctx.strokeStyle = '#090c14';
+  ctx.lineWidth = 5.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-2, -26);
+  ctx.lineTo(-2 - Math.sin(stride) * 11, -12);
+  ctx.lineTo(-3 - Math.sin(stride) * 15, 0);
+  ctx.moveTo(2, -26);
+  ctx.lineTo(2 + Math.sin(stride) * 11, -12);
+  ctx.lineTo(3 + Math.sin(stride) * 15, 0);
+  ctx.stroke();
+
+  // Áo bà ba / áo nâu sồng torso
+  ctx.fillStyle = variantIndex % 2 === 0 ? '#121724' : '#1b1615';
+  fillRoundedRect(ctx, -8.5, -52, 17, 28, 5);
+  // Khăn thắt lưng vải đỏ tự vệ
+  ctx.fillStyle = '#991b1b';
+  ctx.fillRect(-8.5, -33, 17, 3.5);
+
+  // Head + Nón lá hoặc Khăn vấn đầu
+  ctx.fillStyle = '#0d111a';
+  ctx.beginPath();
+  ctx.arc(1, -60, 6.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (variantIndex % 2 === 0) {
+    // Nón lá truyền thống Việt Nam
+    ctx.fillStyle = '#785a32';
+    ctx.beginPath();
+    ctx.moveTo(-14, -61);
+    ctx.lineTo(1, -73);
+    ctx.lineTo(16, -61);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  } else {
+    // Khăn vấn đầu & sao nhỏ tự vệ đỏ
+    ctx.fillStyle = '#7f1d1d';
+    ctx.fillRect(-6, -65, 14, 4);
+  }
+
+  // Front arm + Weapon (Gậy tre / Búa sắt / Cờ đỏ sao vàng)
+  const isAttacking = Boolean(attackPose);
+  const swing = isAttacking ? -1.45 + Math.sin(attackTimer * 20) * 1.25 : -0.35;
+
+  ctx.save();
+  ctx.translate(3, -46);
+  if (weaponType === 'flag') {
+    const waveLift = isAttacking ? -0.35 + Math.sin(time * 12) * 0.2 : -0.15;
+    ctx.rotate(waveLift);
+    ctx.strokeStyle = '#121724';
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(11, -12);
+    ctx.stroke();
+    drawWavingFlag(ctx, 11, -54, 34, 21, time + variantIndex, 48, 'national');
+  } else if (weaponType === 'hammer') {
+    ctx.rotate(swing);
+    ctx.strokeStyle = '#121724';
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(13, -5);
+    ctx.stroke();
+    ctx.strokeStyle = '#a8a29e';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(11, -5);
+    ctx.lineTo(28, -16);
+    ctx.stroke();
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(23, -22, 10, 13);
+  } else {
+    // Gậy tre tự vệ vạt nhọn
+    ctx.rotate(swing * 0.85);
+    ctx.strokeStyle = '#121724';
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(12, -6);
+    ctx.stroke();
+    ctx.strokeStyle = '#a16207';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(-6, 12);
+    ctx.lineTo(28, -24);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+/**
+ * Ụ súng bê tông & bao cát của địch chặn đường Xe tăng 390 trên Đại lộ Sài Gòn (Màn 3B)
+ */
+export function drawEnemyGunBunker(ctx, sx, gy, destroyed, hitFlash, firing, time) {
+  ctx.save();
+  ctx.translate(sx, gy);
+
+  if (destroyed) {
+    ctx.fillStyle = '#1c1917';
+    ctx.beginPath();
+    ctx.moveTo(-36, 2);
+    ctx.lineTo(-22, -14);
+    ctx.lineTo(-4, -8);
+    ctx.lineTo(14, -16);
+    ctx.lineTo(34, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // Concrete & sandbag bunker silhouette
+  ctx.fillStyle = hitFlash > 0 ? '#7f1d1d' : '#1e293b';
+  fillRoundedRect(ctx, -32, -38, 64, 38, [8, 8, 2, 2]);
+  ctx.strokeStyle = 'rgba(248, 113, 113, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-30, -36, 60, 34);
+
+  // Stacked sandbags in front
+  ctx.fillStyle = '#44403c';
+  for (let row = 0; row < 2; row++) {
+    for (let bx = -36 + row * 6; bx <= 18 - row * 6; bx += 17) {
+      fillRoundedRect(ctx, bx, -10 - row * 8, 16, 8, 3);
+    }
+  }
+
+  // Heavy machine gun barrel pointing left
+  ctx.fillStyle = '#090d16';
+  ctx.fillRect(-26, -29, 24, 7);
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 3.6;
+  ctx.beginPath();
+  ctx.moveTo(-24, -25.5);
+  ctx.lineTo(-46, -25.5);
+  ctx.stroke();
+
+  if (firing) {
+    ctx.fillStyle = '#fca5a5';
+    ctx.beginPath();
+    ctx.moveTo(-46, -25.5);
+    ctx.lineTo(-62, -30 + Math.sin(time * 40) * 2);
+    ctx.lineTo(-56, -25.5);
+    ctx.lineTo(-62, -21);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Máy bay cường kích phản lực địch lượn trên bầu trời Đồi Cao Xạ Trường Sơn (Màn 3A)
+ */
+export function drawJetFighterEnemy(ctx, sx, sy, dir, hitFlash, hpRatio) {
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.scale(dir < 0 ? -1 : 1, 1);
+
+  // Dark smoke plume if damaged (hpRatio < 1)
+  if (hpRatio < 0.95) {
+    ctx.fillStyle = 'rgba(30, 27, 26, 0.55)';
+    ctx.beginPath();
+    ctx.arc(-48, -2, 8, 0, Math.PI * 2);
+    ctx.arc(-62, -5, 11, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = hitFlash > 0 ? '#ef4444' : '#0f172a';
+  ctx.beginPath();
+  ctx.moveTo(52, 1);
+  ctx.quadraticCurveTo(18, -8, -44, -3);
+  ctx.lineTo(-54, -18);
+  ctx.lineTo(-36, -3);
+  ctx.lineTo(-48, 5);
+  ctx.quadraticCurveTo(14, 8, 52, 1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Swept wing + cockpit canopy glint
+  ctx.fillStyle = hitFlash > 0 ? '#fca5a5' : '#1e293b';
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(-18, -19);
+  ctx.lineTo(-28, -17);
+  ctx.lineTo(-8, 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(253, 224, 71, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(22, -3.5, 9, 3, -0.1, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.restore();
 }

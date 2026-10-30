@@ -106,6 +106,7 @@ export class WorldRenderer {
       cameraZoom,
       player,
       companionsState = null,
+      combatSystem = null,
       interactables,
       nearbyInteractable,
       nearbyObstacleHint,
@@ -166,7 +167,7 @@ export class WorldRenderer {
       finaleState,
       nearbyObstacleHint,
       isTouchMode,
-      palette
+      combatSystem
     );
 
     // 7. Grounded Historical Interactables (Clean silhouettes; [E] / [Chạm] hint ONLY when nearby)
@@ -183,10 +184,15 @@ export class WorldRenderer {
       autoSeekItem
     );
 
-    // 8. Waiting Successor at End of Act 2 & Act 3 (localX = 2860)
+    // 8. In-World Combat Entities, Progression Gates & Trailing NPC Follower Squad
+    if (combatSystem) {
+      combatSystem.renderWorldEntities(ctx, state);
+    }
+
+    // 9. Waiting Successor at End of Act 2 & Act 3 (localX = 2860)
     this.drawWaitingSuccessor(ctx, act, getGroundY, cameraX, transitionState);
 
-    // 9. Six Fallen Comrades & Heroic Martyrs Saluting in the Sky & Around the Monument (Act 4 Finale)
+    // 10. Six Fallen Comrades & Heroic Martyrs Saluting in the Sky & Around the Monument (Act 4 Finale)
     if (act === 4) {
       const saluteAlpha = Math.max(
         finaleState.spiritsAlpha,
@@ -204,15 +210,16 @@ export class WorldRenderer {
       }
     }
 
-    // 10. Act 4 Living Multi-Generational Companions (Người Ông tuổi già & Người Cha cựu chiến binh)
+    // 11. Act 4 Living Multi-Generational Companions (Người Ông tuổi già & Người Cha cựu chiến binh)
     if (act === 4 && companionsState && companionsState.alpha > 0.01) {
       this.drawAct4Companions(ctx, cameraX, companionsState);
     }
 
-    // 11. Player Character (Multi-generational detailed costumes & articulated poses)
-    this.drawPlayer(ctx, act, cameraX, player, dt);
+    // 12. Player Character (Multi-generational detailed costumes & articulated poses)
+    const playerHiddenInHay = Boolean(act === 1 && combatSystem && combatSystem.act1.isHidden);
+    this.drawPlayer(ctx, act, cameraX, player, dt, playerHiddenInHay);
 
-    // 12. Continuous Sloped / Sunken Terrain Contour & Limbo Foreground Grass (1.2x)
+    // 13. Continuous Sloped / Sunken Terrain Contour & Limbo Foreground Grass (1.2x)
     this.drawTerrainContourAndForeground(
       ctx,
       act,
@@ -223,6 +230,11 @@ export class WorldRenderer {
       cameraX,
       palette
     );
+
+    // 14. In-World Projectiles, Red Bomb Warning Circles, HP Bars & Floating Head Notices
+    if (combatSystem) {
+      combatSystem.renderCombatHudAndProjectiles(ctx, state);
+    }
 
     ctx.restore();
 
@@ -612,7 +624,8 @@ export class WorldRenderer {
     tankProgress,
     finaleState,
     nearbyObstacleHint,
-    isTouchMode = false
+    isTouchMode = false,
+    combatSystem = null
   ) {
     const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
     ctx.save();
@@ -632,7 +645,8 @@ export class WorldRenderer {
         width,
         getGroundY,
         this.time,
-        completedQtes.has('qte_1a')
+        completedQtes.has('qte_1a'),
+        combatSystem ? combatSystem.getGranaryCombatRenderState() : null
       );
 
       // Lễ đài Độc lập Quảng trường Ba Đình (x = 2720)
@@ -655,7 +669,8 @@ export class WorldRenderer {
         baseGroundY,
         getGroundY,
         completedQtes,
-        this.time
+        this.time,
+        combatSystem ? combatSystem.getDienBienCombatRenderState() : null
       );
     }
 
@@ -663,8 +678,10 @@ export class WorldRenderer {
       // Trạm giao liên Trường Sơn trong hốc đá có bếp lửa bập bùng (x = 580)
       drawRockCaveLiaisonPost(ctx, cameraX, width, getGroundY, this.time);
 
-      // Mỏm đồi cao đặt Khẩu đội Pháo cao xạ phòng không 37mm hướng nòng lên trời (x = 1728, dy = -82)
-      drawAntiAircraft37mmBattery(ctx, cameraX, width, getGroundY, this.time);
+      // Nếu không có combatSystem (fallback), vẽ khẩu cao xạ mặc định; khi có combatSystem, vẽ 2 khẩu cao xạ ở 1662 & 1796!
+      if (!combatSystem) {
+        drawAntiAircraft37mmBattery(ctx, cameraX, width, getGroundY, this.time);
+      }
 
       // Đồng đội Quân Giải phóng bên miệng hố bom (x = 2095)
       const comSx = 2095 - cameraX;
@@ -689,7 +706,7 @@ export class WorldRenderer {
         );
       }
 
-      // Tòa nhà Dinh Độc Lập hàng cột dọc đặc trưng, Cổng sắt lớn & Xe tăng T-54 số hiệu 390 (5 bánh xích lớn + cờ Giải phóng)
+      // Tòa nhà Dinh Độc Lập hàng cột dọc đặc trưng, Cổng sắt lớn & Xe tăng T-54 số hiệu 390
       drawIndependencePalaceDetailed(
         ctx,
         cameraX,
@@ -698,7 +715,8 @@ export class WorldRenderer {
         completedQtes.has('qte_3b'),
         activeQte,
         tankProgress,
-        this.time
+        this.time,
+        combatSystem ? combatSystem.getTank390RenderState(completedQtes) : null
       );
     }
 
@@ -1159,7 +1177,7 @@ export class WorldRenderer {
     );
   }
 
-  drawPlayer(ctx, act, cameraX, player, dt) {
+  drawPlayer(ctx, act, cameraX, player, dt, isStealthHidden = false) {
     const costumeAct = player.costumeOverride || act;
     const sx = player.x - cameraX;
     const speedRatio = Math.min(1, Math.abs(player.vx) / player.maxSpeed);
@@ -1187,7 +1205,7 @@ export class WorldRenderer {
         (Math.sin(this.time * 8.8 + i * 0.8) * 25 - (player.vy || 0) * 0.06) * dt;
     }
 
-    if (this.scarfTrail.length > 2 && costumeAct !== 4) {
+    if (this.scarfTrail.length > 2 && costumeAct !== 4 && !isStealthHidden) {
       ctx.save();
       ctx.beginPath();
       this.scarfTrail.forEach((pt, idx) => {
@@ -1219,10 +1237,13 @@ export class WorldRenderer {
         speedRatio,
         onGround: player.onGround,
         vy: player.vy || 0,
-        landingSquash: player.landingSquash || 0,
+        landingSquash: isStealthHidden
+          ? Math.max(0.45, player.landingSquash || 0)
+          : player.landingSquash || 0,
         pose: player.pose,
         poseTimer: player.poseTimer || 0,
         wearingHat: player.wearingHat !== false,
+        alpha: isStealthHidden ? 0.56 : 1,
       },
       this.time
     );

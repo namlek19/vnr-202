@@ -10,6 +10,7 @@ import {
 import { SoundEngine } from './audio/soundEngine.js';
 import { VfxSystem } from './game/vfx.js';
 import { WorldRenderer } from './game/renderer.js';
+import { InWorldCombatSystem } from './game/combatSystem.js';
 
 // ==================== INITIALIZE CORE SYSTEMS ====================
 const canvas = document.getElementById('game-canvas');
@@ -36,6 +37,7 @@ const cinematicCaption = document.getElementById('cinematic-caption');
 const touchControls = document.getElementById('touch-controls');
 const virtualJoystick = document.getElementById('virtual-joystick');
 const joystickKnob = document.getElementById('joystick-knob');
+const btnTouchAttack = document.getElementById('btn-touch-attack');
 const btnTouchJump = document.getElementById('btn-touch-jump');
 const btnTouchDrop = document.getElementById('btn-touch-drop');
 
@@ -44,20 +46,6 @@ const chapterDrawer = document.getElementById('chapter-drawer');
 const drawerItems = Array.from(document.querySelectorAll('.drawer-item'));
 const btnAudio = document.getElementById('btn-audio');
 const audioLabel = document.getElementById('audio-label');
-
-const qteOverlay = document.getElementById('qte-overlay');
-const qteTitleEl = document.getElementById('qte-title');
-const qtePromptEl = document.getElementById('qte-prompt');
-const qteRingStage = document.getElementById('qte-ring-stage');
-const qteTargetZone = document.getElementById('qte-target-zone');
-const qteShrinkingRing = document.getElementById('qte-shrinking-ring');
-const qteMashSvg = document.querySelector('.qte-mash-svg');
-const qteMashProgress = document.getElementById('qte-mash-progress');
-const qteKeyCap = document.getElementById('qte-key-cap');
-const qteSubstatus = document.getElementById('qte-substatus');
-
-const failsafeOverlay = document.getElementById('failsafe-overlay');
-const failsafeText = document.getElementById('failsafe-text');
 
 const incenseHud = document.getElementById('incense-hud');
 const incenseCard = document.getElementById('incense-card');
@@ -84,7 +72,6 @@ const btnReplay = document.getElementById('btn-replay');
 
 // Static text bindings from storyData.js
 incensePrompt.textContent = FINALE_EVENT.promptText;
-failsafeText.textContent = FINALE_EVENT.failSafeMessage;
 finaleQuoteText.textContent = FINALE_EVENT.quoteText;
 finaleQuoteAuthor.textContent = FINALE_EVENT.quoteAuthor;
 finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
@@ -116,6 +103,7 @@ let gameStarted = false;
 let currentAct = 1;
 let topHudDockTimer = null;
 let captionHideTimer = null;
+let pendingMilestoneTimer = null;
 
 // Player 2D Platformer state (dy = offset relative to baseGroundY; y = baseGroundY + dy)
 const player = {
@@ -180,13 +168,6 @@ const modalState = {
   timerId: null,
 };
 
-// Active QTE runtime state
-let activeQte = null;
-let pendingMilestoneTimer = null;
-let failSafeActive = false;
-let failSafeTimer = null;
-let tankProgress = 0;
-
 // Cinematic Auto-Walk & Generational Handoff State Machine
 const transitionState = {
   active: false,
@@ -226,6 +207,26 @@ const companionsState = {
   sharedPose: null,
 };
 
+function scheduleVictoryBannerModal(banner) {
+  if (!banner) return;
+  if (pendingMilestoneTimer) clearTimeout(pendingMilestoneTimer);
+  pendingMilestoneTimer = setTimeout(() => {
+    pendingMilestoneTimer = null;
+    openStoryModal({
+      tag: banner.badge,
+      title: banner.title,
+      content: banner.quote,
+      note: banner.note,
+    });
+  }, 900);
+}
+
+const combatSystem = new InWorldCombatSystem({
+  sound,
+  vfx,
+  onVictoryBanner: scheduleVictoryBannerModal,
+});
+
 function resetCompanionsState() {
   companionsState.joined = false;
   companionsState.captionShown = false;
@@ -252,13 +253,6 @@ function detectTouchCapability() {
   );
 }
 
-function formatPromptForDevice(promptText) {
-  if (!isMobileMode) return promptText;
-  return promptText
-    .replace(/\[SPACE\]/g, '[CHẠM]')
-    .replace(/\[F\]/g, '[CHẠM]');
-}
-
 function syncTouchControlsVisibility() {
   const showCluster =
     isMobileMode &&
@@ -269,11 +263,7 @@ function syncTouchControlsVisibility() {
   touchControls.classList.toggle('hidden', !showCluster);
 
   if (showCluster) {
-    const shouldDim =
-      modalState.open ||
-      Boolean(activeQte) ||
-      transitionState.active ||
-      failSafeActive;
+    const shouldDim = modalState.open || transitionState.active;
     touchControls.classList.toggle('soft-dim', shouldDim);
   }
 }
@@ -311,29 +301,24 @@ function updateViewportAndDeviceMode() {
     keysDown.clear();
     incenseHoldPointers.clear();
     btnHoldIncense.classList.remove('holding');
+    btnTouchAttack.classList.remove('pressed');
     resetJoystickVisualAndState();
   }
   isPortraitPaused = shouldLockPortrait;
   orientationOverlay.classList.toggle('force-visible', isPortraitPaused);
 
-  // Adaptive UI labels for Touch vs PC (keeping PC clean & untouched)
+  // Adaptive UI labels for Touch vs PC
   if (isMobileMode) {
     introControlsLine.innerHTML =
-      'Xoay cần gạt <span>Trái / Phải</span> • Gạt lên / <span>▲</span> Nhảy • Gạt xuống / <span>▼</span> Tụt tầng • <span>Chạm</span> vật phẩm để khám phá';
+      'Xoay cần gạt <span>Trái / Phải</span> • <span>▲ / ▼</span> Nhảy / Tụt tầng • Nút đỏ <span>TẤN CÔNG [F]</span> hành động • <span>Chạm</span> vật phẩm để khám phá';
     incensePrompt.textContent =
-      'Nhấn và giữ biểu tượng nén hương trong 2.5 giây để thắp nén tâm hương tri ân';
+      'Nhấn và giữ biểu tượng nén hương (hoặc nút [F]) trong 2.5 giây để thắp nén tâm hương tri ân';
     incenseBtnLabel.innerHTML = 'Nhấn &amp; Giữ dâng hương';
   } else {
     introControlsLine.innerHTML =
-      'Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span>';
+      'Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span> • Tấn công / Hành động <span>F / J</span>';
     incensePrompt.textContent = FINALE_EVENT.promptText;
     incenseBtnLabel.innerHTML = 'Giữ <kbd>F</kbd> dâng hương';
-  }
-
-  if (activeQte) {
-    const step = activeQte.zone.steps[activeQte.stepIndex];
-    qtePromptEl.textContent = formatPromptForDevice(step.prompt);
-    qteKeyCap.textContent = isMobileMode ? 'CHẠM!' : step.keyLabel;
   }
 
   // Responsive Camera Scale: auto-fit vertical world headroom on low-height mobile landscape (<= 450px..560px)
@@ -399,15 +384,36 @@ function screenToWorld(clientX, clientY) {
   };
 }
 
+function snapPlayerToSurface(localX, platformId = null) {
+  player.x = localX;
+  player.vx = 0;
+  player.vy = 0;
+  player.onGround = true;
+
+  if (platformId) {
+    const actCfg = ACTS.find((a) => a.id === currentAct) || ACTS[0];
+    const plat = actCfg.platforms.find((p) => p.id === platformId);
+    if (plat) {
+      player.dy = plat.dy;
+      player.currentPlatformId = plat.id;
+      player.y = baseGroundY + player.dy;
+      return;
+    }
+  }
+  player.currentPlatformId = null;
+  player.dy = sampleGroundOffset(currentAct, localX);
+  player.y = baseGroundY + player.dy;
+}
+
 function triggerPlayerJump() {
-  if (!gameStarted || modalState.open || activeQte || failSafeActive || transitionState.active) {
+  if (!gameStarted || modalState.open || transitionState.active || finaleState.completed) {
     return;
   }
   player.jumpBufferTimer = 0.14;
 }
 
 function triggerPlayerDropThrough() {
-  if (!gameStarted || modalState.open || activeQte || failSafeActive || transitionState.active) {
+  if (!gameStarted || modalState.open || transitionState.active || finaleState.completed) {
     return;
   }
   if (player.onGround && player.currentPlatformId !== null) {
@@ -417,9 +423,38 @@ function triggerPlayerDropThrough() {
     player.onGround = false;
     player.vy = 115;
   } else if (player.onGround) {
-    // Subtle crouch feedback even on solid ground
     player.landingSquash = Math.max(player.landingSquash, 0.42);
   }
+}
+
+function triggerDirectCombatAction() {
+  if (
+    !gameStarted ||
+    isPortraitPaused ||
+    modalState.open ||
+    transitionState.active ||
+    finaleState.overlayShown ||
+    finaleState.completed
+  ) {
+    return;
+  }
+  // Tại Đài tưởng niệm cuối Màn 4 (localX = 2560), phím [F] được giữ 2.5s để dâng hương
+  if (
+    currentAct === 4 &&
+    Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius
+  ) {
+    return;
+  }
+
+  autoSeekItem = null;
+  combatSystem.triggerPlayerAction({
+    act: currentAct,
+    player,
+    baseGroundY,
+    getGroundY,
+    completedQtes,
+    interactablesState,
+  });
 }
 
 // ==================== TOP HUD & CAPTION HELPERS ====================
@@ -468,10 +503,21 @@ function hideCinematicCaption() {
   cinematicCaption.classList.add('hidden');
 }
 
-// ==================== STORY MODAL (TYPEWRITER & TOUCH SKIP/CLOSE) ====================
+// ==================== STORY MODAL (TYPEWRITER & FOLLOWER RECRUITMENT) ====================
 function openInteractableModal(item) {
+  const firstVisit = !item.visited;
   item.visited = true;
   autoSeekItem = null;
+
+  if (firstVisit) {
+    combatSystem.onInteractableFirstVisited(
+      item,
+      interactablesState,
+      player,
+      getGroundY
+    );
+  }
+
   openStoryModal({
     tag: `${ACTS[item.act - 1].period} • ${item.tag}`,
     title: item.title,
@@ -548,328 +594,20 @@ function closeStoryModal() {
   syncTouchControlsVisibility();
 }
 
-// ==================== QTE SLOW-MOTION ENGINE ====================
-function startQte(zone) {
-  autoSeekItem = null;
-  activeQte = {
-    id: zone.id,
-    x: zone.x,
-    zone,
-    stepIndex: 0,
-    stepElapsed: 0,
-    mashCount: 0,
-  };
-
-  player.vx = 0;
-  player.vy = 0;
-  player.facing = 1;
-  if (zone.id === 'qte_3b') {
-    tankProgress = 0;
-  }
-
-  vfx.setSlowMotion(true);
-  targetCameraZoom = 1.1;
-  sound.playSlowMoEnter();
-
-  qteOverlay.classList.remove('hidden');
-  syncTouchControlsVisibility();
-  setupCurrentQteStep();
-}
-
-function setupCurrentQteStep() {
-  if (!activeQte) return;
-  const step = activeQte.zone.steps[activeQte.stepIndex];
-  activeQte.stepElapsed = 0;
-  activeQte.mashCount = 0;
-
-  qteTitleEl.textContent = activeQte.zone.title;
-  qtePromptEl.textContent = formatPromptForDevice(step.prompt);
-  qteKeyCap.textContent = isMobileMode ? 'CHẠM!' : step.keyLabel;
-
-  if (step.mode === 'timing') {
-    qteShrinkingRing.classList.remove('hidden');
-    qteTargetZone.classList.remove('hidden', 'in-sweet-spot');
-    qteMashSvg.classList.add('hidden');
-    qteShrinkingRing.style.transform = 'scale(1.22)';
-    qteSubstatus.textContent = 'Chờ vòng trắng thu vào vùng sáng...';
-  } else {
-    qteShrinkingRing.classList.add('hidden');
-    qteTargetZone.classList.add('hidden');
-    qteMashSvg.classList.remove('hidden');
-    updateMashRingVisual(0, step.targetCount);
-    qteSubstatus.textContent = `Tiến độ: 0 / ${step.targetCount}`;
-  }
-}
-
-function updateMashRingVisual(count, target) {
-  const circumference = 415;
-  const ratio = Math.max(0, Math.min(1, count / target));
-  qteMashProgress.style.strokeDashoffset = String(circumference * (1 - ratio));
-}
-
-function updateActiveQte(rawDt) {
-  if (!activeQte) return;
-  const step = activeQte.zone.steps[activeQte.stepIndex];
-  activeQte.stepElapsed += rawDt;
-
-  const actionLabel = isMobileMode ? 'CHẠM!' : step.keyLabel;
-
-  if (step.mode === 'timing') {
-    const progress = activeQte.stepElapsed / step.duration;
-    if (progress >= 1.0) {
-      triggerQteFailSafe();
-      return;
-    }
-
-    const ringScale = 1.22 - progress * 0.86;
-    qteShrinkingRing.style.transform = `scale(${ringScale.toFixed(3)})`;
-
-    const inSweet = progress >= step.sweetSpotStart && progress <= step.sweetSpotEnd;
-    qteTargetZone.classList.toggle('in-sweet-spot', inSweet);
-    qteSubstatus.textContent = inSweet
-      ? isMobileMode
-        ? 'Chạm vào vòng tròn ngay!'
-        : `Bấm [${actionLabel}] ngay!`
-      : 'Canh vòng sáng chạm viền vàng...';
-  } else if (step.mode === 'mash') {
-    const remaining = Math.max(0, step.duration - activeQte.stepElapsed);
-    qteSubstatus.textContent = isMobileMode
-      ? `Chạm liên hoàn: ${activeQte.mashCount} / ${step.targetCount} (${remaining.toFixed(1)}s)`
-      : `Nhấp [${actionLabel}]: ${activeQte.mashCount} / ${step.targetCount} (${remaining.toFixed(1)}s)`;
-    if (activeQte.stepElapsed >= step.duration) {
-      triggerQteFailSafe();
-    }
-  }
-}
-
-function handleQteActionInput(inputCode) {
-  if (!activeQte || isPortraitPaused) return;
-  const step = activeQte.zone.steps[activeQte.stepIndex];
-
-  const matchesKey =
-    inputCode === 'TOUCH' ||
-    inputCode === 'CLICK' ||
-    (step.key === 'SPACE' && inputCode === 'Space') ||
-    (step.key === 'KeyF' && inputCode === 'KeyF');
-
-  if (!matchesKey) return;
-
-  if (step.mode === 'timing') {
-    const progress = activeQte.stepElapsed / step.duration;
-    if (progress >= step.sweetSpotStart * 0.78 && progress <= step.sweetSpotEnd + 0.05) {
-      sound.playQteHit(activeQte.stepIndex);
-      vfx.triggerShake(11, 0.26);
-      vfx.triggerFlash(0.38, '#fef08a', 2.8);
-      vfx.spawnCelebrationBurst(player.x + 16, player.y - 54, 24);
-
-      player.pose = step.actionPose;
-      player.poseTimer = 0;
-      player.poseHoldDuration = 1.1;
-
-      if (activeQte.stepIndex + 1 < activeQte.zone.steps.length) {
-        activeQte.stepIndex++;
-        setupCurrentQteStep();
-      } else {
-        completeActiveQte();
-      }
-    } else {
-      triggerQteFailSafe();
-    }
-  } else if (step.mode === 'mash') {
-    activeQte.mashCount++;
-    player.pose = step.actionPose;
-    player.poseTimer = 0;
-    player.poseHoldDuration = 1.15;
-
-    updateMashRingVisual(activeQte.mashCount, step.targetCount);
-
-    if (activeQte.id === 'qte_1a') {
-      sound.playHammerHit(activeQte.mashCount);
-      vfx.triggerShake(9, 0.2);
-      vfx.spawnCelebrationBurst(2335, getGroundY(2335) - 60, 16);
-    } else if (activeQte.id === 'qte_3b') {
-      tankProgress = activeQte.mashCount / step.targetCount;
-      sound.playQteHit(activeQte.mashCount);
-      vfx.triggerShake(10, 0.22);
-      vfx.spawnCelebrationBurst(2520 + tankProgress * 115, getGroundY(2600) - 48, 18);
-    } else {
-      sound.playQteHit(activeQte.mashCount);
-    }
-
-    if (activeQte.mashCount >= step.targetCount) {
-      completeActiveQte();
-    }
-  }
-}
-
-function snapPlayerToSurface(localX, platformId = null) {
-  player.x = localX;
-  player.vx = 0;
-  player.vy = 0;
-  player.onGround = true;
-
-  if (platformId) {
-    const actCfg = ACTS.find((a) => a.id === currentAct) || ACTS[0];
-    const plat = actCfg.platforms.find((p) => p.id === platformId);
-    if (plat) {
-      player.dy = plat.dy;
-      player.currentPlatformId = plat.id;
-      player.y = baseGroundY + player.dy;
-      return;
-    }
-  }
-  player.currentPlatformId = null;
-  player.dy = sampleGroundOffset(currentAct, localX);
-  player.y = baseGroundY + player.dy;
-}
-
-function completeActiveQte() {
-  if (!activeQte) return;
-  const finishedZone = activeQte.zone;
-  completedQtes.add(finishedZone.id);
-
-  activeQte = null;
-  qteOverlay.classList.add('hidden');
-  vfx.setSlowMotion(false);
-  targetCameraZoom = 1.0;
-  syncTouchControlsVisibility();
-
-  switch (finishedZone.rewardEffect) {
-    case 'grain_burst': {
-      vfx.setGranaryLiberated(true);
-      sound.playQteVictory();
-      sound.playExplosion(0.7);
-      vfx.spawnGrainBurst(2335, getGroundY(2335));
-      vfx.triggerFlash(0.82, '#fef08a', 1.7);
-      vfx.triggerShake(18, 0.5);
-      snapPlayerToSurface(2385);
-      break;
-    }
-    case 'independence_dawn': {
-      sound.playQteVictory();
-      vfx.spawnCelebrationBurst(2710, getGroundY(2710) - 105, 80);
-      vfx.triggerFlash(0.88, '#fffbeb', 1.4);
-      vfx.triggerShake(15, 0.45);
-      snapPlayerToSurface(2690);
-      player.pose = 'flag_raise';
-      player.poseTimer = 0;
-      player.poseHoldDuration = 1.6;
-      break;
-    }
-    case 'trench_blast': {
-      sound.playExplosion(1.2);
-      sound.playQteVictory();
-      vfx.spawnExplosion(2355, getGroundY(2355), 1.3);
-      vfx.triggerFlash(0.78, '#fed7aa', 1.85);
-      vfx.triggerShake(20, 0.52);
-      snapPlayerToSurface(2452);
-      player.pose = 'leap_trench';
-      player.poseTimer = 0;
-      player.poseHoldDuration = 0.85;
-      break;
-    }
-    case 'dien_bien_victory': {
-      sound.playExplosion(1.1);
-      sound.playQteVictory();
-      vfx.spawnExplosion(2680, baseGroundY - 54, 1.2);
-      vfx.spawnCelebrationBurst(2690, baseGroundY - 145, 95);
-      vfx.triggerFlash(0.9, '#fef08a', 1.35);
-      vfx.triggerShake(22, 0.58);
-      snapPlayerToSurface(2685, 'p2_bunker_roof');
-      player.pose = 'bunker_flag';
-      player.poseTimer = 0;
-      player.poseHoldDuration = 1.8;
-      break;
-    }
-    case 'shockwave_guard': {
-      sound.playExplosion(1.0);
-      sound.playQteVictory();
-      vfx.spawnExplosion(2040, getGroundY(2040), 1.15);
-      vfx.spawnShockwave(2095, getGroundY(2095) - 46, '#fde047', 260, 0.8);
-      vfx.triggerFlash(0.75, '#fef3c7', 1.85);
-      vfx.triggerShake(17, 0.48);
-      snapPlayerToSurface(2165);
-      break;
-    }
-    case 'reunification_victory': {
-      tankProgress = 1;
-      sound.playQteVictory();
-      sound.playExplosion(0.8);
-      vfx.spawnCelebrationBurst(2645, getGroundY(2645) - 82, 100);
-      vfx.triggerFlash(0.92, '#fffbeb', 1.3);
-      vfx.triggerShake(20, 0.55);
-      snapPlayerToSurface(2655);
-      player.pose = 'tank_charge';
-      player.poseTimer = 0;
-      player.poseHoldDuration = 1.8;
-      break;
-    }
-  }
-
-  if (finishedZone.banner) {
-    if (pendingMilestoneTimer) clearTimeout(pendingMilestoneTimer);
-    pendingMilestoneTimer = setTimeout(() => {
-      pendingMilestoneTimer = null;
-      openStoryModal({
-        tag: finishedZone.banner.badge,
-        title: finishedZone.banner.title,
-        content: finishedZone.banner.quote,
-        note: finishedZone.banner.note,
-      });
-    }, 900);
-  }
-}
-
-function triggerQteFailSafe() {
-  if (!activeQte) return;
-  const retryZone = activeQte.zone;
-
-  activeQte = null;
-  qteOverlay.classList.add('hidden');
-  vfx.setSlowMotion(false);
-  targetCameraZoom = 1.0;
-
-  if (retryZone.id === 'qte_3b') {
-    tankProgress = 0;
-  }
-
-  sound.playQteRetry();
-  player.pose = null;
-  snapPlayerToSurface(Math.max(95, retryZone.x - 145));
-
-  failSafeActive = true;
-  failsafeOverlay.classList.remove('hidden');
-  syncTouchControlsVisibility();
-
-  if (failSafeTimer) clearTimeout(failSafeTimer);
-  failSafeTimer = setTimeout(() => {
-    failSafeActive = false;
-    failsafeOverlay.classList.add('hidden');
-    syncTouchControlsVisibility();
-  }, 1500);
-}
-
 // ==================== CINEMATIC TRANSITION & AUTO-WALK ENGINE ====================
 function clearTransientOverlays() {
   if (pendingMilestoneTimer) {
     clearTimeout(pendingMilestoneTimer);
     pendingMilestoneTimer = null;
   }
-  if (failSafeTimer) {
-    clearTimeout(failSafeTimer);
-    failSafeTimer = null;
-  }
-  failSafeActive = false;
-  failsafeOverlay.classList.add('hidden');
 
   autoSeekItem = null;
-  activeQte = null;
-  qteOverlay.classList.add('hidden');
   vfx.setSlowMotion(false);
   targetCameraZoom = 1.0;
 
   incenseHoldPointers.clear();
   btnHoldIncense.classList.remove('holding');
+  btnTouchAttack.classList.remove('pressed');
 
   closeStoryModal();
   closeChapterDrawer();
@@ -896,6 +634,14 @@ function beginActFromLeft(actId) {
   player.facing = 1;
   snapPlayerToSurface(WORLD_CONFIG.enterStartX);
 
+  combatSystem.enterAct(
+    actId,
+    completedQtes,
+    interactablesState,
+    WORLD_CONFIG.enterTargetX,
+    getGroundY
+  );
+
   cameraX = 0;
 
   transitionState.active = true;
@@ -921,6 +667,14 @@ function beginActFromRight(actId) {
   player.pose = null;
   player.facing = -1;
   snapPlayerToSurface(WORLD_CONFIG.backReturnStartX);
+
+  combatSystem.enterAct(
+    actId,
+    completedQtes,
+    interactablesState,
+    WORLD_CONFIG.backReturnTargetX,
+    getGroundY
+  );
 
   cameraX = Math.max(0, WORLD_CONFIG.actWidth - viewportWidth);
 
@@ -988,13 +742,13 @@ function jumpToChapterFromMenu(actNumber) {
     if (q.act < actNumber) {
       completedQtes.add(q.id);
       if (q.id === 'qte_1a') vfx.setGranaryLiberated(true);
-      if (q.id === 'qte_3b') tankProgress = 1;
     } else {
       completedQtes.delete(q.id);
       if (q.id === 'qte_1a') vfx.setGranaryLiberated(false);
-      if (q.id === 'qte_3b') tankProgress = 0;
     }
   });
+
+  combatSystem.resetForChapterJump(actNumber);
 
   if (actNumber <= 4) {
     finaleState.holdProgress = 0;
@@ -1170,11 +924,11 @@ function replayFromBeginning() {
   });
   completedQtes.clear();
   vfx.resetAll();
-  tankProgress = 0;
+  combatSystem.resetAll();
   jumpToChapterFromMenu(1);
 }
 
-// ==================== MULTI-TOUCH VIRTUAL JOYSTICK & QUICK BUTTONS ====================
+// ==================== MULTI-TOUCH VIRTUAL JOYSTICK & ACTION BUTTONS ====================
 function updateJoystickFromPointer(clientX, clientY) {
   const rect = virtualJoystick.getBoundingClientRect();
   const centerX = rect.left + rect.width * 0.5;
@@ -1206,7 +960,7 @@ function updateJoystickFromPointer(clientX, clientY) {
     autoSeekItem = null;
   }
 
-  // Flick Up (dy < -threshold) -> Trigger Jump (with clean debounce per flick)
+  // Flick Up -> Jump
   if (ny < -0.52) {
     if (!joystickState.upLatched) {
       joystickState.upLatched = true;
@@ -1220,7 +974,7 @@ function updateJoystickFromPointer(clientX, clientY) {
     joystickState.upLatched = false;
   }
 
-  // Flick Down (dy > threshold) -> Trigger Drop-through Platform (with clean debounce)
+  // Flick Down -> Drop-through Platform
   if (ny > 0.54) {
     if (!joystickState.downLatched) {
       joystickState.downLatched = true;
@@ -1262,18 +1016,59 @@ function handleJoystickPointerEnd(e) {
 virtualJoystick.addEventListener('pointerup', handleJoystickPointerEnd);
 virtualJoystick.addEventListener('pointercancel', handleJoystickPointerEnd);
 
-// Right-hand Quick Jump (▲) & Quick Drop-through (▼) buttons (multi-touch parallel with left Joystick)
+// Finale Monument Touch & Hold (2.5s) helper
+function startHoldingIncensePointer(pointerId) {
+  incenseHoldPointers.add(pointerId);
+  btnHoldIncense.classList.add('holding');
+}
+
+function stopHoldingIncensePointer(pointerId) {
+  incenseHoldPointers.delete(pointerId);
+  if (incenseHoldPointers.size === 0) {
+    btnHoldIncense.classList.remove('holding');
+  }
+}
+
+// Right-hand Prominent Red/Gold Action Button: TẤN CÔNG [F]
+btnTouchAttack.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  sound.init();
+  btnTouchAttack.classList.add('pressed');
+  autoSeekItem = null;
+
+  if (
+    currentAct === 4 &&
+    !finaleState.completed &&
+    Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius + 45
+  ) {
+    startHoldingIncensePointer(e.pointerId);
+    return;
+  }
+  triggerDirectCombatAction();
+});
+
+btnTouchAttack.addEventListener('pointerup', (e) => {
+  btnTouchAttack.classList.remove('pressed');
+  stopHoldingIncensePointer(e.pointerId);
+});
+btnTouchAttack.addEventListener('pointercancel', (e) => {
+  btnTouchAttack.classList.remove('pressed');
+  stopHoldingIncensePointer(e.pointerId);
+});
+btnTouchAttack.addEventListener('pointerleave', (e) => {
+  btnTouchAttack.classList.remove('pressed');
+  stopHoldingIncensePointer(e.pointerId);
+});
+
+// Right-hand Quick Jump (▲) & Quick Drop-through (▼) buttons
 btnTouchJump.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   sound.init();
   btnTouchJump.classList.add('pressed');
   autoSeekItem = null;
-  if (activeQte) {
-    handleQteActionInput('TOUCH');
-  } else {
-    triggerPlayerJump();
-  }
+  triggerPlayerJump();
 });
 
 btnTouchJump.addEventListener('pointerup', () => btnTouchJump.classList.remove('pressed'));
@@ -1286,11 +1081,7 @@ btnTouchDrop.addEventListener('pointerdown', (e) => {
   sound.init();
   btnTouchDrop.classList.add('pressed');
   autoSeekItem = null;
-  if (activeQte) {
-    handleQteActionInput('TOUCH');
-  } else {
-    triggerPlayerDropThrough();
-  }
+  triggerPlayerDropThrough();
 });
 
 btnTouchDrop.addEventListener('pointerup', () => btnTouchDrop.classList.remove('pressed'));
@@ -1333,6 +1124,7 @@ drawerItems.forEach((btn) => {
         introOverlay.classList.add('fade-out');
         setTimeout(() => introOverlay.classList.add('hidden'), 600);
         transitionState.fadeAlpha = 1;
+        combatSystem.resetForChapterJump(actId);
         beginActFromLeft(actId);
       });
     } else {
@@ -1378,7 +1170,6 @@ storyModal.addEventListener('pointerup', (e) => {
   );
   modalPointerDownPos = null;
 
-  // Ignore if user dragged vertically to scroll long text or if modal just opened
   if (movedDist > 14 || performance.now() - modalState.openedAt < 180) return;
 
   if (!modalState.typingDone) {
@@ -1387,37 +1178,6 @@ storyModal.addEventListener('pointerup', (e) => {
     closeStoryModal();
   }
 });
-
-// Direct QTE Touch: Tap directly on QTE Ring OR anywhere on right half of screen
-qteRingStage.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  sound.init();
-  handleQteActionInput('TOUCH');
-});
-
-qteOverlay.addEventListener('pointerdown', (e) => {
-  if (qteRingStage.contains(e.target)) return;
-  if (e.clientX >= window.innerWidth * 0.42) {
-    e.preventDefault();
-    e.stopPropagation();
-    sound.init();
-    handleQteActionInput('TOUCH');
-  }
-});
-
-// Finale Monument Touch & Hold (2.5s) on Incense Card / Button
-function startHoldingIncensePointer(pointerId) {
-  incenseHoldPointers.add(pointerId);
-  btnHoldIncense.classList.add('holding');
-}
-
-function stopHoldingIncensePointer(pointerId) {
-  incenseHoldPointers.delete(pointerId);
-  if (incenseHoldPointers.size === 0) {
-    btnHoldIncense.classList.remove('holding');
-  }
-}
 
 incenseCard.addEventListener('pointerdown', (e) => {
   e.preventDefault();
@@ -1443,22 +1203,13 @@ window.addEventListener('pointercancel', (e) => {
 btnReplay.addEventListener('click', replayFromBeginning);
 
 // Direct Canvas Touch:
-// 1) During QTE -> tapping right half of screen triggers QTE action
-// 2) At Act 4 Monument -> Touch & Hold directly on Incense Altar / Monument charges incense
-// 3) Tapping an Interactable / [Chạm] Khám phá -> opens immediately if < 120px, or auto-runs to item & opens!
+// 1) At Act 4 Monument -> Touch & Hold directly on Incense Altar / Monument charges incense
+// 2) Tapping an Interactable / [Chạm] Khám phá -> opens immediately if < 120px, or auto-runs to item & opens!
 canvas.addEventListener('pointerdown', (e) => {
   if (!gameStarted || isPortraitPaused) return;
   sound.init();
 
-  if (activeQte) {
-    if (e.clientX >= window.innerWidth * 0.42) {
-      e.preventDefault();
-      handleQteActionInput('TOUCH');
-    }
-    return;
-  }
-
-  if (modalState.open || failSafeActive || transitionState.active || finaleState.overlayShown) {
+  if (modalState.open || transitionState.active || finaleState.overlayShown) {
     return;
   }
 
@@ -1517,7 +1268,6 @@ canvas.addEventListener('pointerdown', (e) => {
     if (dxToPlayer < 120 && dyToPlayer < 96) {
       openInteractableModal(tappedItem);
     } else {
-      // Player is farther away -> auto-run toward the tapped visible artifact and auto-open!
       autoSeekItem = tappedItem;
       autoSeekElapsed = 0;
       autoSeekJumpCooldown = 0;
@@ -1525,7 +1275,7 @@ canvas.addEventListener('pointerdown', (e) => {
   }
 });
 
-// ==================== KEYBOARD LISTENERS (PC UNCHANGED) ====================
+// ==================== KEYBOARD LISTENERS (PC) ====================
 window.addEventListener('keydown', (e) => {
   if (isPortraitPaused) return;
 
@@ -1576,23 +1326,20 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (activeQte) {
-    if ((e.code === 'Space' || e.code === 'KeyF') && !e.repeat) {
-      e.preventDefault();
-      handleQteActionInput(e.code);
-    }
-    return;
-  }
-
   if (transitionState.active) return;
 
-  if (e.code === 'KeyE' && !e.repeat && !failSafeActive && nearbyInteractable) {
+  if (e.code === 'KeyE' && !e.repeat && nearbyInteractable) {
     e.preventDefault();
     openInteractableModal(nearbyInteractable);
     return;
   }
 
-  if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !e.repeat) {
+  if ((e.code === 'KeyF' || e.code === 'KeyJ') && !e.repeat) {
+    e.preventDefault();
+    triggerDirectCombatAction();
+  }
+
+  if ((e.code === 'KeyW' || e.code === 'ArrowUp' || e.code === 'Space') && !e.repeat) {
     e.preventDefault();
     autoSeekItem = null;
     triggerPlayerJump();
@@ -1614,7 +1361,8 @@ window.addEventListener('keydown', (e) => {
     e.code === 'KeyD' ||
     e.code === 'KeyW' ||
     e.code === 'KeyS' ||
-    e.code === 'KeyF'
+    e.code === 'KeyF' ||
+    e.code === 'KeyJ'
   ) {
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     if (
@@ -1637,6 +1385,7 @@ window.addEventListener('blur', () => {
   keysDown.clear();
   incenseHoldPointers.clear();
   btnHoldIncense.classList.remove('holding');
+  btnTouchAttack.classList.remove('pressed');
   resetJoystickVisualAndState();
 });
 
@@ -1668,7 +1417,7 @@ function updatePlatformerPhysics(rawDt) {
   const holdingIncenseNow =
     currentAct === 4 &&
     Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius &&
-    (keysDown.has('KeyF') || incenseHoldPointers.size > 0);
+    (keysDown.has('KeyF') || keysDown.has('KeyJ') || incenseHoldPointers.size > 0);
 
   // Horizontal movement: Keyboard (A/D) + Virtual Analog Joystick (dx) + Auto-Seek Item
   const keyLeft = keysDown.has('KeyA') || keysDown.has('ArrowLeft');
@@ -1721,7 +1470,6 @@ function updatePlatformerPhysics(rawDt) {
         moveRight = dx > 10;
         analogScale = 1.0;
 
-        // Smart auto-jump over low obstacles or onto elevated platforms along the path
         if (player.onGround && autoSeekJumpCooldown <= 0) {
           const dir = dx >= 0 ? 1 : -1;
           const blockedByObstacle = actCfg.obstacles.some(
@@ -1879,9 +1627,10 @@ function updatePlatformerPhysics(rawDt) {
     if (!allCompleted) {
       player.x = WORLD_CONFIG.exitTriggerX - 4;
       player.vx = 0;
-      showTemporaryCaption(
-        'Hãy hoàn thành sự kiện lịch sử phía trước để tiếp bước sang màn tiếp theo.',
-        2600
+      combatSystem.setHeadNotice(
+        'Hãy hoàn thành sự kiện lịch sử phía trước ([F] / TẤN CÔNG) để bước sang màn tiếp theo!',
+        'warn',
+        2.2
       );
     } else if (pendingMilestoneTimer || modalState.open) {
       player.x = WORLD_CONFIG.exitTriggerX - 4;
@@ -1934,12 +1683,8 @@ function gameLoop(now) {
     width: viewportWidth,
     height: viewportHeight,
     getGroundY,
-    activeQteId: activeQte ? activeQte.id : null,
+    activeQteId: null,
   });
-
-  if (activeQte) {
-    updateActiveQte(rawDt);
-  }
 
   if (player.pose && player.pose !== 'bow_incense' && player.pose !== 'handoff_give') {
     player.poseTimer += rawDt;
@@ -1948,16 +1693,16 @@ function gameLoop(now) {
     }
   }
 
+  let canControl = false;
+
   if (transitionState.active) {
     nearbyInteractable = null;
     nearbyObstacleHint = null;
     updateCinematicTransition(rawDt);
   } else {
-    const canControl =
+    canControl =
       gameStarted &&
       !modalState.open &&
-      !activeQte &&
-      !failSafeActive &&
       !finaleState.overlayShown &&
       !finaleState.completed;
 
@@ -1967,6 +1712,20 @@ function gameLoop(now) {
       player.vx = 0;
       player.y = baseGroundY + player.dy;
     }
+  }
+
+  // Update Real-Time In-World Minigames, Progression Gates & Follower Squad!
+  if (gameStarted && !transitionState.active) {
+    combatSystem.update(rawDt, {
+      act: currentAct,
+      player,
+      baseGroundY,
+      getGroundY,
+      completedQtes,
+      interactablesState,
+      canControl,
+    });
+    player.y = baseGroundY + player.dy;
   }
 
   // Update dynamic Sub-Location Name in Top HUD
@@ -1979,7 +1738,7 @@ function gameLoop(now) {
 
   // Check nearby Interactable ([E] on PC / [Chạm] on Mobile)
   nearbyInteractable = null;
-  if (gameStarted && !transitionState.active && !activeQte) {
+  if (gameStarted && !transitionState.active && !modalState.open) {
     let bestDist = WORLD_CONFIG.interactRadiusX;
     for (const item of interactablesState) {
       if (item.act !== currentAct) continue;
@@ -1993,38 +1752,13 @@ function gameLoop(now) {
     }
   }
 
-  // Early siren tension cue approaching danger zones
-  if (
-    gameStarted &&
-    !activeQte &&
-    !transitionState.active &&
-    ((currentAct === 1 && !completedQtes.has('qte_1a') && player.x > 2080 && player.x < 2240) ||
-      (currentAct === 2 && !completedQtes.has('qte_2a') && player.x > 2130 && player.x < 2280) ||
-      (currentAct === 3 && !completedQtes.has('qte_3a') && player.x > 1830 && player.x < 1980))
-  ) {
-    sound.playSiren();
-  }
-
-  // Check QTE triggers in current Act
-  if (gameStarted && !activeQte && !modalState.open && !failSafeActive && !transitionState.active) {
-    for (const zone of QTE_ZONES) {
-      if (
-        zone.act === currentAct &&
-        !completedQtes.has(zone.id) &&
-        Math.abs(player.x - zone.x) <= zone.triggerRadius
-      ) {
-        startQte(zone);
-        break;
-      }
-    }
-  }
-
   // Act 1 Blazing Torch trailing embers along footsteps
   if (
     gameStarted &&
     (player.costumeOverride || currentAct) === 1 &&
     player.pose !== 'hammer' &&
-    player.pose !== 'flag_raise'
+    player.pose !== 'flag_raise' &&
+    !combatSystem.act1.isHidden
   ) {
     const movingFast = Math.abs(player.vx) > 35;
     if (Math.random() < (movingFast ? 0.58 : 0.14)) {
@@ -2033,9 +1767,8 @@ function gameLoop(now) {
     }
   }
 
-  // Act 4 Multi-Generational Companions (x >= 2000 / global 11000) & Finale Monument (localX = 2560)
+  // Act 4 Multi-Generational Companions (x >= 2000) & Finale Monument (localX = 2560) — STRICTLY PRESERVED!
   if (gameStarted && currentAct === 4 && !transitionState.active) {
-    // 1. Trigger & animate Elder Grandfather + Veteran Father walking alive alongside Grandchild
     if (player.x >= 2000) {
       if (!companionsState.joined) {
         companionsState.joined = true;
@@ -2106,7 +1839,8 @@ function gameLoop(now) {
       incenseHud.classList.toggle('hidden', !nearMonument || modalState.open);
 
       if (nearMonument && !modalState.open) {
-        const isHoldingIncense = keysDown.has('KeyF') || incenseHoldPointers.size > 0;
+        const isHoldingIncense =
+          keysDown.has('KeyF') || keysDown.has('KeyJ') || incenseHoldPointers.size > 0;
         const altarX = FINALE_EVENT.x - 58;
         const altarTopY = getGroundY(FINALE_EVENT.x) - 78;
 
@@ -2128,6 +1862,7 @@ function gameLoop(now) {
             finaleState.postTimer = 0;
             incenseHoldPointers.clear();
             btnHoldIncense.classList.remove('holding');
+            btnTouchAttack.classList.remove('pressed');
             incenseHud.classList.add('hidden');
             sound.playIncenseComplete();
             vfx.triggerFlash(0.62, '#fef9c3', 1.2);
@@ -2190,12 +1925,13 @@ function gameLoop(now) {
       cameraZoom,
       player,
       companionsState,
+      combatSystem,
       interactables: interactablesState,
       nearbyInteractable,
       nearbyObstacleHint,
       completedQtes,
-      activeQte,
-      tankProgress,
+      activeQte: null,
+      tankProgress: completedQtes.has('qte_3b') ? 1 : 0,
       transitionState,
       finaleState,
       isTouchMode: isMobileMode,

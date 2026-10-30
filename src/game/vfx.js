@@ -285,74 +285,9 @@ export class VfxSystem {
     }
   }
 
-  updateBombers(dt, { act, playerX, cameraX, width, getGroundY, activeQteId }) {
-    const inDienBienZone = act === 2 && playerX >= 2050 && playerX <= 2620;
-    const inTruongSonBombZone = act === 3 && playerX >= 1750 && playerX <= 2350;
-
-    if (inDienBienZone || inTruongSonBombZone) {
-      this.bomberCooldown -= dt;
-      if (this.bomberCooldown <= 0 && this.bombers.length < 2) {
-        this.bomberCooldown = 2.8 + Math.random() * 1.8;
-        const dir = Math.random() < 0.72 ? -1 : 1;
-        const startX = dir < 0 ? cameraX + width + 200 : cameraX - 200;
-        const altitude = 68 + Math.random() * 68;
-        this.bombers.push({
-          x: startX,
-          y: altitude,
-          vx: dir * (310 + Math.random() * 85),
-          dir,
-          dropped: false,
-          dropTargetX:
-            activeQteId === 'qte_2a'
-              ? 2350
-              : activeQteId === 'qte_3a'
-              ? 2050
-              : Math.max(180, Math.min(2780, playerX + (Math.random() * 320 - 110))),
-        });
-      }
-    }
-
-    for (let i = this.bombers.length - 1; i >= 0; i--) {
-      const b = this.bombers[i];
-      b.x += b.vx * dt;
-
-      if (!b.dropped && Math.abs(b.x - b.dropTargetX) < 65) {
-        b.dropped = true;
-        let targetX = b.dropTargetX;
-        if (!activeQteId && Math.abs(targetX - playerX) < 135) {
-          targetX = Math.min(2780, playerX + 185);
-        }
-        this.fallingBombs.push({
-          x: b.x,
-          y: b.y + 12,
-          targetX,
-          vx: (targetX - b.x) * 0.85,
-          vy: 85,
-          gravity: 460,
-        });
-      }
-
-      if (b.x < cameraX - 420 || b.x > cameraX + width + 420) {
-        this.bombers.splice(i, 1);
-      }
-    }
-
-    for (let i = this.fallingBombs.length - 1; i >= 0; i--) {
-      const bomb = this.fallingBombs[i];
-      bomb.vy += bomb.gravity * dt;
-      bomb.x += bomb.vx * dt;
-      bomb.y += bomb.vy * dt;
-
-      const floorY = getGroundY(bomb.x);
-      if (bomb.y >= floorY - 4) {
-        this.spawnExplosion(bomb.x, floorY, 0.72);
-        if (Math.abs(bomb.x - playerX) < 620 && this.sound) {
-          this.sound.playExplosion(0.62);
-        }
-        this.triggerShake(5.5, 0.22);
-        this.fallingBombs.splice(i, 1);
-      }
-    }
+  updateBombers() {
+    // Đèn pha tuần tra và máy bay thả bom nay được điều khiển trực tiếp
+    // theo thời gian thực có thanh máu & vòng tròn cảnh báo trong combatSystem.js!
   }
 
   // ==================== SPECIAL SPAWNERS ====================
@@ -414,6 +349,54 @@ export class VfxSystem {
       });
     }
     this.spawnShockwave(worldX, groundY - 58, '#fbbf24', 220);
+  }
+
+  /** Hạt thóc vàng bắn tung ra mỗi nhát búa đập vào cửa Kho thóc Nhật */
+  spawnRiceHitSpray(worldX, groundY, count = 16) {
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI * (0.15 + Math.random() * 0.7);
+      const speed = 90 + Math.random() * 230;
+      this.worldParticles.push({
+        kind: 'rice_grain',
+        x: worldX + (Math.random() - 0.5) * 32,
+        y: groundY - 48 - Math.random() * 42,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 40,
+        gravity: 390,
+        bounce: true,
+        rot: Math.random() * Math.PI,
+        rotSpeed: (Math.random() - 0.5) * 10,
+        size: 3.6 + Math.random() * 2.2,
+        color: i % 2 === 0 ? '#fef08a' : '#eab308',
+        age: 0,
+        life: 1.4 + Math.random() * 0.9,
+      });
+    }
+  }
+
+  /** Pháo hoa ánh sáng bình minh & hoa nắng bay rực rỡ trên bầu trời đô thị Màn 4 */
+  spawnDawnFirework(worldX, skyY) {
+    const colors = ['#fef08a', '#fde68a', '#fbbf24', '#38bdf8', '#f8fafc', '#fb7185'];
+    for (let i = 0; i < 56; i++) {
+      const angle = (i / 56) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
+      const speed = 65 + Math.random() * 235;
+      this.worldParticles.push({
+        kind: i % 3 === 0 ? 'rice_grain' : 'spark', // 'rice_grain' renders soft golden sunlit petals!
+        x: worldX,
+        y: skyY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 25,
+        gravity: 95,
+        bounce: false,
+        rot: Math.random() * Math.PI,
+        rotSpeed: (Math.random() - 0.5) * 6,
+        size: i % 3 === 0 ? 4.8 + Math.random() * 2.4 : 2.2 + Math.random() * 2.6,
+        color: colors[i % colors.length],
+        age: 0,
+        life: 1.45 + Math.random() * 0.95,
+      });
+    }
+    this.spawnShockwave(worldX, skyY, '#fef08a', 175, 0.72);
   }
 
   spawnExplosion(worldX, groundY, scale = 1.0) {
@@ -525,106 +508,8 @@ export class VfxSystem {
 
   // ==================== RENDERING ====================
 
-  renderHazards(ctx, act, cameraX, width, getGroundY, activeQte) {
-    // 1. Primary Searchlight Cone from Japanese Granary Right Watchtower (Act 1, x = 2445)
-    if (act === 1 && !this.granaryLiberated && cameraX + width > 1860 && cameraX < 2640) {
-      const towerWorldX = 2445;
-      const towerX = towerWorldX - cameraX - 16;
-      const towerY = getGroundY(towerWorldX) - 236;
-      const sweepWorldX = 2195 + Math.sin(this.searchlightPhase) * 145;
-      const sweepCenterX = sweepWorldX - cameraX;
-      const sweepGroundY = getGroundY(sweepWorldX);
-
-      ctx.save();
-      const grad = ctx.createLinearGradient(towerX, towerY, sweepCenterX, sweepGroundY);
-      grad.addColorStop(0, 'rgba(255, 248, 205, 0.48)');
-      grad.addColorStop(0.65, 'rgba(254, 240, 138, 0.14)');
-      grad.addColorStop(1, 'rgba(254, 240, 138, 0.02)');
-
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(towerX, towerY);
-      ctx.lineTo(sweepCenterX - 68, sweepGroundY);
-      ctx.lineTo(sweepCenterX + 68, sweepGroundY);
-      ctx.closePath();
-      ctx.fill();
-
-      // Subtle light pool on ground
-      const poolGrad = ctx.createRadialGradient(
-        sweepCenterX,
-        sweepGroundY,
-        4,
-        sweepCenterX,
-        sweepGroundY,
-        74
-      );
-      poolGrad.addColorStop(0, 'rgba(254, 240, 138, 0.34)');
-      poolGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
-      ctx.fillStyle = poolGrad;
-      ctx.beginPath();
-      ctx.ellipse(sweepCenterX, sweepGroundY, 74, 11, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // 2. Aircraft / Bomber silhouettes (Act 2: French propeller fighter-bomber; Act 3: Jet bomber)
-    ctx.save();
-    for (const b of this.bombers) {
-      const sx = b.x - cameraX;
-      if (act === 2) {
-        drawPropellerFighter(ctx, sx, b.y, b.dir, 0.96, this.clock);
-      } else {
-        ctx.save();
-        ctx.translate(sx, b.y);
-        ctx.scale(b.dir < 0 ? -1 : 1, 1);
-
-        ctx.fillStyle = 'rgba(10, 9, 12, 0.9)';
-        ctx.beginPath();
-        ctx.moveTo(48, 1);
-        ctx.quadraticCurveTo(16, -7, -44, -2);
-        ctx.lineTo(-52, -16);
-        ctx.lineTo(-36, -2);
-        ctx.lineTo(-46, 4);
-        ctx.quadraticCurveTo(14, 7, 48, 1);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(6, -1);
-        ctx.lineTo(-18, -19);
-        ctx.lineTo(-26, -17);
-        ctx.lineTo(-8, 1);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    // 3. Falling bombs + red target marker
-    for (const bomb of this.fallingBombs) {
-      const bx = bomb.x - cameraX;
-      const tx = bomb.targetX - cameraX;
-      const tgy = getGroundY(bomb.targetX);
-
-      this.drawRedDangerZone(ctx, tx, tgy, 48, 0.55);
-
-      ctx.save();
-      ctx.translate(bx, bomb.y);
-      ctx.rotate(Math.atan2(bomb.vy, bomb.vx) - Math.PI / 2);
-      ctx.fillStyle = '#18181b';
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 4, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // 4. Explicit danger marker during QTE 2A & QTE 3A
-    if (activeQte && (activeQte.id === 'qte_2a' || activeQte.id === 'qte_3a')) {
-      const pulse = 0.68 + Math.sin(performance.now() * 0.014) * 0.25;
-      const gy = getGroundY(activeQte.x);
-      this.drawRedDangerZone(ctx, activeQte.x - cameraX, gy, 84, pulse);
-    }
-
-    ctx.restore();
+  renderHazards() {
+    // Các luồng đèn pha, máy bay địch, bom rơi & vòng tròn đỏ được vẽ đồng bộ trong combatSystem.js
   }
 
   drawRedDangerZone(ctx, screenX, groundY, radius, alpha) {

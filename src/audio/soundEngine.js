@@ -834,5 +834,153 @@ export class SoundEngine {
       osc.stop(t + 4.35);
     });
   }
+
+  /** Tiếng vung búa / đuốc chém gió mạnh mẽ (Màn 1) */
+  playMeleeSwing() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+
+    if (this.noiseBuffer) {
+      const nSrc = this.ctx.createBufferSource();
+      nSrc.buffer = this.noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(620, now);
+      filter.frequency.exponentialRampToValueAtTime(180, now + 0.16);
+      filter.Q.value = 1.4;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+
+      nSrc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxBus);
+      nSrc.start(now, Math.random(), 0.18);
+    }
+  }
+
+  /** Tiếng ném bom xăng / lựu đạn vút theo đường cong parabol (Màn 2) */
+  playGrenadeThrow() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(280, now);
+    osc.frequency.exponentialRampToValueAtTime(590, now + 0.14);
+    osc.frequency.exponentialRampToValueAtTime(240, now + 0.34);
+
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+
+    osc.connect(gain);
+    gain.connect(this.sfxBus);
+    osc.start(now);
+    osc.stop(now + 0.38);
+  }
+
+  /** Tiếng súng tiểu liên AK-47 / Hỏa lực súng máy giòn đanh (Màn 2 & 3) */
+  playMachineGunBurst(shots = 3, pitchBase = 175) {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+
+    for (let i = 0; i < shots; i++) {
+      const t = now + i * 0.058;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(pitchBase + (Math.random() * 24 - 12), t);
+      osc.frequency.exponentialRampToValueAtTime(48, t + 0.048);
+
+      gain.gain.setValueAtTime(0.19, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.052);
+
+      osc.connect(gain);
+      gain.connect(this.sfxBus);
+      osc.start(t);
+      osc.stop(t + 0.056);
+
+      if (this.noiseBuffer) {
+        const nSrc = this.ctx.createBufferSource();
+        nSrc.buffer = this.noiseBuffer;
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 1200;
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.12, t);
+        nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        nSrc.connect(hp);
+        hp.connect(nGain);
+        nGain.connect(this.sfxBus);
+        nSrc.start(t, Math.random(), 0.045);
+      }
+    }
+  }
+
+  /** Tiếng Khẩu đội Pháo cao xạ 37mm nòng đôi điểm xạ uy lực ("PÙNG - PÙNG!") */
+  playAntiAircraftFire() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+
+    for (let b = 0; b < 2; b++) {
+      const t = now + b * 0.095;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(165 - b * 12, t);
+      osc.frequency.exponentialRampToValueAtTime(36, t + 0.19);
+
+      gain.gain.setValueAtTime(0.34, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.21);
+
+      osc.connect(gain);
+      gain.connect(this.sfxBus);
+      gain.connect(this.reverbBus.input);
+      osc.start(t);
+      osc.stop(t + 0.23);
+    }
+  }
+
+  /** Tiếng cảnh báo bị đèn pha / đạn địch đẩy lùi nhẹ (không dừng game) */
+  playAlertHit() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    [440, 311.13].forEach((freq, idx) => {
+      const t = now + idx * 0.075;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.14, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      osc.connect(gain);
+      gain.connect(this.sfxBus);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  }
+
+  /** Tiếng pháo hoa ánh sáng Đổi mới lung linh trên bầu trời đô thị (Màn 4) */
+  playDawnFirework() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    const sparkle = [587.33, 783.99, 987.77, 1174.66, 1567.98];
+    sparkle.forEach((freq, idx) => {
+      const t = now + idx * 0.045;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.11, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0008, t + 0.95);
+      osc.connect(gain);
+      gain.connect(this.sfxBus);
+      gain.connect(this.reverbBus.input);
+      osc.start(t);
+      osc.stop(t + 1.0);
+    });
+  }
 }
 
