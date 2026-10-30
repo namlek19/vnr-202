@@ -3816,25 +3816,36 @@ export function drawFollowerComrade(ctx, sx, footY, act, variantIndex, anim, tim
   // Màn 1: Nông dân / Tự vệ mặc áo nâu/áo bà ba, đội nón lá hoặc vấn khăn, cầm gậy / búa / cờ đỏ!
   const weaponType = ['staff', 'hammer', 'flag'][variantIndex % 3];
   const bob = onGround && speedRatio > 0.05 ? Math.abs(Math.sin(walkCycle * 2)) * 3.2 : 0;
-  const crouchDrop = stealthHidden || isCrouching ? 20 : 0;
+  const crouchActive = Boolean(stealthHidden || isCrouching);
+  const crouchDrop = crouchActive ? 18 : 0;
 
   ctx.translate(sx, footY);
   ctx.scale(facing * scale, scale);
-  ctx.translate(0, -bob + crouchDrop);
 
-  // Legs
+  // Legs with deep knee bend when crouching
   const stride = speedRatio > 0.05 ? Math.sin(walkCycle) * 0.65 : 0;
   ctx.strokeStyle = '#090c14';
   ctx.lineWidth = 5.4;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(-2, -26);
-  ctx.lineTo(-2 - Math.sin(stride) * 11, -12);
-  ctx.lineTo(-3 - Math.sin(stride) * 15, 0);
-  ctx.moveTo(2, -26);
-  ctx.lineTo(2 + Math.sin(stride) * 11, -12);
-  ctx.lineTo(3 + Math.sin(stride) * 15, 0);
+  if (crouchActive) {
+    ctx.moveTo(-2, -18);
+    ctx.lineTo(-7, -9);
+    ctx.lineTo(-3, 0);
+    ctx.moveTo(2, -18);
+    ctx.lineTo(8, -9);
+    ctx.lineTo(4, 0);
+  } else {
+    ctx.moveTo(-2, -26);
+    ctx.lineTo(-2 - Math.sin(stride) * 11, -12);
+    ctx.lineTo(-3 - Math.sin(stride) * 15, 0);
+    ctx.moveTo(2, -26);
+    ctx.lineTo(2 + Math.sin(stride) * 11, -12);
+    ctx.lineTo(3 + Math.sin(stride) * 15, 0);
+  }
   ctx.stroke();
+
+  ctx.translate(0, -bob + crouchDrop);
 
   // Áo bà ba / áo nâu sồng torso
   ctx.fillStyle = variantIndex % 2 === 0 ? '#121724' : '#1b1615';

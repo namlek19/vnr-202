@@ -946,6 +946,11 @@ export class InWorldCombatSystem {
     const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
     const dir = player.facing || 1;
 
+    // Check special tactical subrooms & trench zones:
+    const inAct2Trenches = act === 2 && player.x >= 2040 && player.x <= 2650;
+    const inAct1Cellar = act === 1 && player.x >= 440 && player.x <= 760 && player.dy > 50;
+    const inAct3Bunker = act === 3 && player.x >= 440 && player.x <= 760 && player.dy > 50;
+
     for (let i = 0; i < this.followers.length; i++) {
       const f = this.followers[i];
       if (f.attackPose) {
@@ -956,31 +961,99 @@ export class InWorldCombatSystem {
         }
       }
 
-      const desiredX = Math.max(20, player.x - dir * (36 + i * 27));
+      let desiredX;
+      let targetFloorY;
+      let forceCrouch = false;
+
+      if (inAct2Trenches) {
+        // Safe trenches in Act 2:
+        // Trench 1: [2108, 2182], center 2145, dy = 52
+        // Trench 2: [2284, 2358], center 2321, dy = 52
+        // Trench 3: [2444, 2504], center 2474, dy = 52
+        forceCrouch = true;
+
+        if (player.x >= 2420) {
+          // Player is at or attacking from Trench 3
+          if (i < 2) {
+            desiredX = 2452 + (i % 2) * 32; // In Trench 3
+          } else if (i < 4) {
+            desiredX = 2296 + (i % 2) * 32; // In Trench 2
+          } else {
+            desiredX = 2125 + (i % 2) * 32; // In Trench 1
+          }
+        } else if (player.x >= 2240) {
+          // Player is at Trench 2
+          if (i < 2) {
+            desiredX = 2296 + (i % 2) * 32; // In Trench 2
+          } else {
+            desiredX = 2125 + (i % 2) * 32; // In Trench 1
+          }
+        } else {
+          // Player is at Trench 1
+          desiredX = 2115 + (i % 3) * 26; // In Trench 1
+        }
+        targetFloorY = baseGroundY + 52;
+      } else if (inAct1Cellar) {
+        // Player is down in the Act 1 secret cellar (x = 450..750, dy = +180)
+        desiredX = Math.max(480, Math.min(720, player.x - dir * (26 + i * 22)));
+        targetFloorY = baseGroundY + 180;
+        forceCrouch = true;
+      } else if (inAct3Bunker) {
+        // Player is down in the Act 3 Trường Sơn bunker (x = 450..750, dy = +170)
+        desiredX = Math.max(480, Math.min(720, player.x - dir * (26 + i * 22)));
+        targetFloorY = baseGroundY + 170;
+        forceCrouch = true;
+      } else {
+        // Standard open-world follow
+        desiredX = Math.max(20, player.x - dir * (36 + i * 27));
+        targetFloorY = getGroundY(f.x);
+
+        // Nhảy theo nhân vật chính nếu nhân vật đang ở trên bậc đá / ban công cao
+        if (player.currentPlatformId && Math.abs(f.x - player.x) < 175) {
+          const pPlat = actCfg.platforms.find((p) => p.id === player.currentPlatformId);
+          if (pPlat && f.x >= pPlat.x1 - 24 && f.x <= pPlat.x2 + 24) {
+            targetFloorY = baseGroundY + pPlat.dy;
+          }
+        }
+      }
+
+      // Sync crouch posture
+      f.isCrouching = Boolean(
+        forceCrouch ||
+        player.isCrouching ||
+        (act === 1 && this.act1.isHidden) ||
+        (act === 2 && f.x >= 2095 && f.x <= 2515)
+      );
+
       const dx = desiredX - f.x;
+      const speedMult = inAct2Trenches ? 7.2 : 5.2;
+      const maxSpd = inAct2Trenches ? 340 : 305;
 
       if (Math.abs(dx) > 6) {
-        const targetVx = Math.max(-305, Math.min(305, dx * 5.2));
+        const targetVx = Math.max(-maxSpd, Math.min(maxSpd, dx * speedMult));
         f.vx += (targetVx - f.vx) * Math.min(1, dt * 11);
         if (!f.attackPose) {
           f.facing = dx >= 0 ? 1 : -1;
         }
-        f.walkCycle += dt * (3.5 + (Math.abs(f.vx) / 305) * 7.2);
+        f.walkCycle += dt * (3.5 + (Math.abs(f.vx) / maxSpd) * 7.2);
+
+        // In Act 2 trenches: leap across barbed wire mounds when transitioning between trenches
+        if (inAct2Trenches && f.onGround && Math.abs(dx) > 28) {
+          const movingRight = dx > 0;
+          if (movingRight && ((f.x > 2185 && f.x < 2215) || (f.x > 2360 && f.x < 2395))) {
+            f.vy = -390;
+            f.onGround = false;
+          } else if (!movingRight && ((f.x > 2250 && f.x < 2280) || (f.x > 2420 && f.x < 2445))) {
+            f.vy = -390;
+            f.onGround = false;
+          }
+        }
       } else {
         f.vx *= Math.max(0, 1 - dt * 12);
         if (!f.attackPose) f.facing = dir;
       }
 
       f.x += f.vx * dt;
-
-      // Nhảy theo nhân vật chính nếu nhân vật đang ở trên bậc đá / ban công cao
-      let targetFloorY = getGroundY(f.x);
-      if (player.currentPlatformId && Math.abs(f.x - player.x) < 175) {
-        const pPlat = actCfg.platforms.find((p) => p.id === player.currentPlatformId);
-        if (pPlat && f.x >= pPlat.x1 - 24 && f.x <= pPlat.x2 + 24) {
-          targetFloorY = baseGroundY + pPlat.dy;
-        }
-      }
 
       if (targetFloorY < f.y - 16 && f.onGround) {
         f.vy = -520;
@@ -1845,6 +1918,7 @@ export class InWorldCombatSystem {
             attackPose: f.attackPose,
             attackTimer: f.attackTimer,
             stealthHidden: act === 1 && this.act1.isHidden,
+            isCrouching: Boolean(f.isCrouching),
           },
           this.clock
         );

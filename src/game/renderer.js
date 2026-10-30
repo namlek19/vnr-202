@@ -219,7 +219,12 @@ export class WorldRenderer {
 
     // 12. Player Character (Multi-generational detailed costumes & articulated poses)
     const playerHiddenInHay = Boolean(act === 1 && combatSystem && combatSystem.act1.isHidden);
-    this.drawPlayer(ctx, act, cameraX, player, dt, playerHiddenInHay);
+    const hasFollowers = Boolean(
+      combatSystem &&
+      ((combatSystem.followers && combatSystem.followers.length > 0) ||
+       (combatSystem.rallyUnits && combatSystem.rallyUnits.length > 0))
+    );
+    this.drawPlayer(ctx, act, cameraX, player, dt, playerHiddenInHay, hasFollowers);
 
     // 13. Continuous Sloped / Sunken Terrain Contour & Limbo Foreground Grass (1.2x)
     this.drawTerrainContourAndForeground(
@@ -1180,7 +1185,7 @@ export class WorldRenderer {
     );
   }
 
-  drawPlayer(ctx, act, cameraX, player, dt, isStealthHidden = false) {
+  drawPlayer(ctx, act, cameraX, player, dt, isStealthHidden = false, hasFollowers = false) {
     const costumeAct = player.costumeOverride || act;
     const sx = player.x - cameraX;
     const speedRatio = Math.min(1, Math.abs(player.vx) / player.maxSpeed);
@@ -1251,6 +1256,60 @@ export class WorldRenderer {
       },
       this.time
     );
+
+    // Inverted Triangle Squad Leader Indicator (Tam giác ngược ▼ trên đầu nhân vật chính khi có NPC đồng đội)
+    if (hasFollowers && !isStealthHidden) {
+      const isCrouching = Boolean(player.isCrouching);
+      const headTopY = footY - (isCrouching ? 56 : 94);
+      const triY = headTopY - 16 + Math.sin(this.time * 4.2) * 3.2;
+      this.drawSquadLeaderIndicator(ctx, sx, triY);
+    }
+  }
+
+  /**
+   * Vẽ biểu tượng tam giác ngược [▼] phát sáng tinh tế trên đầu nhân vật chính
+   * để phân biệt rõ ràng vị trí người chơi khi có đoàn NPC quần chúng/đồng đội chạy cùng.
+   */
+  drawSquadLeaderIndicator(ctx, sx, triY) {
+    ctx.save();
+    ctx.translate(sx, triY);
+
+    // Warm golden aura
+    const aura = ctx.createRadialGradient(0, 0, 1, 0, 0, 13);
+    aura.addColorStop(0, 'rgba(253, 230, 138, 0.7)');
+    aura.addColorStop(0.55, 'rgba(245, 158, 11, 0.3)');
+    aura.addColorStop(1, 'rgba(245, 158, 11, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inverted Triangle (Tam giác ngược ▼ pointing down)
+    ctx.beginPath();
+    ctx.moveTo(-6.5, -4.5);
+    ctx.lineTo(6.5, -4.5);
+    ctx.lineTo(0, 5.5);
+    ctx.closePath();
+
+    const triGrad = ctx.createLinearGradient(0, -4.5, 0, 5.5);
+    triGrad.addColorStop(0, '#fef08a');
+    triGrad.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = triGrad;
+    ctx.fill();
+
+    // Crisp white rim stroke
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Center bright spark
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, -1.2, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   }
 
   drawTerrainContourAndForeground(

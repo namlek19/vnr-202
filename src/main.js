@@ -1909,6 +1909,58 @@ function updatePlatformerPhysics(rawDt) {
   }
 }
 
+/**
+ * Tự động tính toán mức độ phóng to của Camera khi nhân vật bước vào các không gian đặc biệt:
+ * - Căn hầm bí mật (Màn 1): zoom 1.22
+ * - Hang Pác Bó (Màn 1): zoom 1.18
+ * - Nhà phố cổ Hà Nội 2 tầng (Màn 2): zoom 1.18
+ * - Giao thông hào Điện Biên Phủ (Màn 2): zoom 1.20
+ * - Hầm chỉ huy chữ A Trường Sơn (Màn 3): zoom 1.22
+ * - Đài tưởng niệm dâng hương (Màn 4): zoom 1.16
+ * - Khi ra khỏi không gian đặc biệt: trả mượt mà về 1.0
+ */
+function computeTargetCameraZoom() {
+  if (!gameStarted || isPortraitPaused || transitionState.active) {
+    return 1.0;
+  }
+
+  // Act 1 Special Sub-rooms:
+  if (currentAct === 1) {
+    if (player.x >= 440 && player.x <= 760 && player.dy > 35) {
+      return 1.22;
+    }
+    if (player.x >= 1220 && player.x <= 1560) {
+      return 1.18;
+    }
+  }
+
+  // Act 2 Special Locations:
+  if (currentAct === 2) {
+    if (player.x >= 1050 && player.x <= 1360) {
+      return 1.18;
+    }
+    if (player.x >= 2085 && player.x <= 2530 && (player.dy > 18 || player.isCrouching)) {
+      return 1.20;
+    }
+  }
+
+  // Act 3 Special Locations:
+  if (currentAct === 3) {
+    if (player.x >= 440 && player.x <= 760 && player.dy > 35) {
+      return 1.22;
+    }
+  }
+
+  // Act 4 Special Locations:
+  if (currentAct === 4) {
+    if (player.x >= 2440 && player.x <= 2680) {
+      return 1.16;
+    }
+  }
+
+  return 1.0;
+}
+
 // ==================== MAIN 60FPS GAME LOOP ====================
 let lastFrameTime = performance.now();
 
@@ -2157,7 +2209,10 @@ function gameLoop(now) {
     Math.min(maxCamX, player.x + lookAhead - viewportWidth * 0.43)
   );
   cameraX += (desiredCamX - cameraX) * Math.min(1, rawDt * 6.5);
-  cameraZoom += (targetCameraZoom - cameraZoom) * Math.min(1, rawDt * 5.5);
+
+  // Dynamic smooth camera zoom when entering/leaving caves, cellars, trenches & monuments
+  targetCameraZoom = computeTargetCameraZoom();
+  cameraZoom += (targetCameraZoom - cameraZoom) * Math.min(1, rawDt * 3.8);
 
   // Camera vertical tracking for underground subrooms (Act 1 cellar dy = +180, Act 3 bunker dy = +170)
   const desiredCamY = player.dy > 20 ? (player.dy - 15) * 0.94 : 0;
