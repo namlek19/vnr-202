@@ -90,17 +90,6 @@ const vovToggleBtn = document.getElementById('vov-toggle-btn');
 const vovBars = Array.from(document.querySelectorAll('.vov-bar'));
 const vovBarHeights = new Float32Array(18);
 
-// Static text bindings from storyData.js
-incensePrompt.textContent = isMobileMode ? 'Chạm & Giữ để thắp nén tâm hương' : 'Giữ [F] để thắp nén tâm hương';
-if (finaleQuoteText) finaleQuoteText.textContent = FINALE_EVENT.quoteText;
-if (finaleQuoteAuthor) finaleQuoteAuthor.textContent = FINALE_EVENT.quoteAuthor;
-if (finaleLessonTitle) finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
-if (finaleLessonText) finaleLessonText.textContent = FINALE_EVENT.lessonText;
-if (btnReplay) {
-  const replaySpan = btnReplay.querySelector('span');
-  if (replaySpan) replaySpan.textContent = FINALE_EVENT.replayButtonLabel;
-}
-
 // ==================== DEVICE, VIEWPORT & PHYSICS STATE ====================
 let viewportWidth = window.innerWidth;
 let viewportHeight = window.innerHeight;
@@ -110,6 +99,17 @@ let baseGroundY = Math.round(viewportHeight * 0.8);
 let isTouchDevice = false;
 let isMobileMode = false;
 let isPortraitPaused = false;
+
+// Static text bindings from storyData.js
+if (incensePrompt) incensePrompt.textContent = FINALE_EVENT.promptText;
+if (finaleQuoteText) finaleQuoteText.textContent = FINALE_EVENT.quoteText;
+if (finaleQuoteAuthor) finaleQuoteAuthor.textContent = FINALE_EVENT.quoteAuthor;
+if (finaleLessonTitle) finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
+if (finaleLessonText) finaleLessonText.textContent = FINALE_EVENT.lessonText;
+if (btnReplay) {
+  const replaySpan = btnReplay.querySelector('span');
+  if (replaySpan) replaySpan.textContent = FINALE_EVENT.replayButtonLabel;
+}
 
 const GRAVITY = 1580;
 const JUMP_VELOCITY = -625;
@@ -1311,7 +1311,7 @@ btnTouchDrop.addEventListener('pointercancel', () => btnTouchDrop.classList.remo
 btnTouchDrop.addEventListener('pointerleave', () => btnTouchDrop.classList.remove('pressed'));
 
 // ==================== UI & DIRECT CANVAS TOUCH LISTENERS ====================
-async function startGameExperience(e) {
+function startGameExperience(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1319,12 +1319,8 @@ async function startGameExperience(e) {
   if (gameStarted) return;
   gameStarted = true;
   updateViewportAndDeviceMode();
-  try {
-    await sound.init();
-  } catch (err) {
-    console.warn('Audio init warning on start:', err);
-  }
 
+  // Dismiss intro splash immediately with smooth fade
   introOverlay.classList.add('fade-out');
   setTimeout(() => {
     introOverlay.classList.add('hidden');
@@ -1333,6 +1329,11 @@ async function startGameExperience(e) {
   transitionState.fadeAlpha = 1;
   beginActFromLeft(1);
   syncTouchControlsVisibility();
+
+  // Initialize sound non-blockingly so audio latency/autoplay restrictions never block gameplay
+  sound.init().catch((err) => {
+    console.warn('Audio init non-fatal warning on start:', err);
+  });
 }
 
 btnStartGame.addEventListener('pointerup', startGameExperience);
@@ -1353,13 +1354,12 @@ drawerItems.forEach((btn) => {
     closeChapterDrawer();
     if (!gameStarted) {
       gameStarted = true;
-      sound.init().then(() => {
-        introOverlay.classList.add('fade-out');
-        setTimeout(() => introOverlay.classList.add('hidden'), 600);
-        transitionState.fadeAlpha = 1;
-        combatSystem.resetForChapterJump(actId);
-        beginActFromLeft(actId);
-      });
+      introOverlay.classList.add('fade-out');
+      setTimeout(() => introOverlay.classList.add('hidden'), 600);
+      transitionState.fadeAlpha = 1;
+      combatSystem.resetForChapterJump(actId);
+      beginActFromLeft(actId);
+      sound.init().catch(() => {});
     } else {
       jumpToChapterFromMenu(actId);
     }
