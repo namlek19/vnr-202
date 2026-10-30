@@ -196,6 +196,7 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
     poseTimer = 0,
     wearingHat = true,
     alpha = 1,
+    isCrouching = false,
   } = anim;
 
   const isElder = role === 'elder_grandfather';
@@ -205,13 +206,15 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
   const isAct3 = role === 'act3' || role === 3;
   const isAct4 = role === 'act4' || role === 4;
 
-  const bobAmp = isElder ? 2.2 : 3.8;
+  const crouchActive = Boolean(isCrouching && onGround && !isElder && !isVeteran);
+  const bobAmp = crouchActive ? 1.8 : isElder ? 2.2 : 3.8;
   const walkBob =
     onGround && speedRatio > 0.05
       ? Math.abs(Math.sin(walkCycle * 2)) * bobAmp
-      : Math.sin(time * 2.4) * 0.9;
+      : Math.sin(time * 2.4) * (crouchActive ? 0.5 : 0.9);
   const squashDrop = landingSquash * 5.8;
-  const hipHeight = isElder ? 34 : 38;
+  // Khi isCrouching = true: hạ trọng tâm hông sâu xuống 19px (giảm ~45% tổng chiều cao nhân vật để lọt hẳn dưới miệng hào!)
+  const hipHeight = crouchActive ? 19 : isElder ? 34 : 38;
   const hipY = footY - hipHeight - walkBob + squashDrop;
 
   ctx.save();
@@ -276,12 +279,17 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
         thighAng = isBack ? -0.42 : 0.48;
         kneeBend = 0.36;
       }
+    } else if (crouchActive) {
+      // Tư thế gập gối khom lưng thấp sát đáy giao thông hào (chân trụ vững trên mặt đất ở +19px)
+      const crouchStep = speedRatio > 0.04 ? Math.sin(walkCycle + (isBack ? Math.PI : 0)) * 0.28 : 0;
+      thighAng = (isBack ? 0.88 : 1.08) + crouchStep;
+      kneeBend = (isBack ? 1.54 : 1.72) + crouchStep * 0.35;
     } else if (pose === 'leap_trench' || pose === 'leap_crater') {
       thighAng = isBack ? -0.58 : 0.68;
       kneeBend = 0.42;
     }
 
-    const segLen = isElder ? 17.2 : 18.8;
+    const segLen = crouchActive ? 15.8 : isElder ? 17.2 : 18.8;
     const kneeX = Math.sin(thighAng) * segLen;
     const kneeY = Math.cos(thighAng) * segLen;
     const shinAng = thighAng - kneeBend;
@@ -318,11 +326,16 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
   // ---- 2. TORSO, BACKGEAR & PERIOD UNIFORM DETAILS ----
   let lean = isElder ? 0.22 : speedRatio * 0.13;
   if (!onGround) lean = vy < 0 ? 0.18 : 0.08;
-  if (pose === 'dash') lean = 0.42;
+  if (crouchActive) lean = 0.64; // Gập thấp lưng sát hào giảm ~45% chiều cao nhân vật!
+  else if (pose === 'dash') lean = 0.42;
   else if (pose === 'bow_incense') lean = isElder ? 0.36 : 0.28;
   else if (pose === 'shield_comrade') lean = 0.22;
 
   ctx.save();
+  if (crouchActive) {
+    ctx.translate(2, 5);
+    ctx.scale(0.95, 0.86);
+  }
   ctx.rotate(lean);
 
   // --- Back-mounted gear BEFORE torso ---
@@ -742,6 +755,32 @@ export function drawDetailedCharacter(ctx, sx, footY, role, anim, time) {
     ctx.beginPath();
     ctx.arc(15, -49, 4.2, 0, Math.PI * 2);
     ctx.fill();
+  } else if (pose === 'rally_cheer') {
+    // Chiến sĩ Vệ quốc đoàn & Tự vệ Thành giơ cao súng trường / mã tấu hưởng ứng Lời kêu gọi Toàn quốc kháng chiến!
+    const pump = Math.sin(time * 10.5) * 4.2;
+    ctx.beginPath();
+    ctx.moveTo(3, -27);
+    ctx.lineTo(13, -49 + pump);
+    ctx.stroke();
+    // Raised rifle with gleaming bayonet
+    ctx.save();
+    ctx.translate(13, -49 + pump);
+    ctx.rotate(-0.35);
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(-2.5, -2, 5, 16);
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -2);
+    ctx.lineTo(0, -28);
+    ctx.stroke();
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -28);
+    ctx.lineTo(0, -38);
+    ctx.stroke();
+    ctx.restore();
   } else if (isAct1) {
     // Màn 1: Cầm ngọn đuốc tre rực lửa giơ phía trước soi đường trong đêm đen!
     const torchBob = Math.sin(walkCycle * 2 + time * 3) * 2.2;
@@ -981,156 +1020,309 @@ export function drawVillageDinhAndBanyan(ctx, dinhX, banyanX, dinhGy, banyanGy, 
 }
 
 /**
- * Căn hầm bí mật trũng xuống dưới nền nhà tranh đầu Màn 1 (x = 430..685)
+ * Không gian cắt lớp 2D (2D Cutaway Underground):
+ * Căn hầm bí mật sâu dưới lòng đất (+180px) bên dưới nền Nhà tranh vách nứa đầu Màn 1 (x = 450..750)
  */
 export function drawSecretCellarAndHut(ctx, centerX, surfaceY, cellarFloorY, time) {
   ctx.save();
+  const depth = Math.max(120, cellarFloorY - surfaceY);
+  const leftX = centerX - 150; // world x = 450
+  const rightX = centerX + 150; // world x = 750
+  const innerLeft = centerX - 136; // world x = 464
+  const innerRight = centerX + 136; // world x = 736
 
-  // Warm underground oil-lamp glow inside the secret cellar
-  const flicker = 0.88 + Math.sin(time * 9.5) * 0.12;
-  const cellarGlow = ctx.createRadialGradient(
-    centerX,
-    cellarFloorY - 26,
-    6,
-    centerX,
-    cellarFloorY - 26,
-    135
-  );
-  cellarGlow.addColorStop(0, `rgba(245, 158, 11, ${0.34 * flicker})`);
-  cellarGlow.addColorStop(0.55, `rgba(180, 83, 9, ${0.15 * flicker})`);
-  cellarGlow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+  // 1. NỀN ĐẤT ĐÁ ĐEN ĐẶC CẮT LỚP BAO QUANH CĂN HẦM (Cutaway Pitch-Black Earth Enclosure)
+  ctx.fillStyle = '#030508';
+  ctx.fillRect(leftX - 28, surfaceY, 356, depth + 36);
 
-  // Dark underground chamber cutout (drawn over background so player walks INSIDE it!)
-  ctx.fillStyle = '#07090e';
-  fillRoundedRect(ctx, centerX - 155, surfaceY - 2, 310, cellarFloorY - surfaceY + 8, 8);
-  ctx.fillStyle = cellarGlow;
-  ctx.fillRect(centerX - 155, surfaceY - 2, 310, cellarFloorY - surfaceY + 8);
+  // Khoang hầm ngầm chữ nhật cắt lớp bên trong (chừa lối cầu thang gỗ mở ở góc trái innerLeft..centerX-46)
+  ctx.fillStyle = '#0b0e15';
+  ctx.fillRect(innerLeft, surfaceY + 30, innerRight - innerLeft, depth - 28);
+  // Hốc giếng cầu thang mở thông lên sàn nhà tranh (x = 464..554)
+  ctx.fillRect(innerLeft, surfaceY + 2, 90, 32);
 
-  // Timber shoring beams & ladder rungs inside the secret cellar
-  ctx.strokeStyle = '#292018';
-  ctx.lineWidth = 5;
-  for (const bx of [-115, -55, 55, 115]) {
+  // Lớp trần đất đá đen đặc dày 30px ngăn cách căn hầm với mặt đất bên trên (x = 554..746)
+  ctx.fillStyle = '#04060a';
+  ctx.fillRect(centerX - 46, surfaceY + 2, 190, 30);
+  // Các viên sỏi đá ngầm & rễ tre ăn sâu trong lớp đất cắt ngang
+  ctx.fillStyle = '#141923';
+  for (const [rx, ry, rw, rh] of [
+    [-24, 14, 14, 6],
+    [18, 11, 18, 7],
+    [68, 16, 15, 6],
+    [112, 12, 16, 7],
+  ]) {
     ctx.beginPath();
-    ctx.moveTo(centerX + bx, surfaceY);
-    ctx.lineTo(centerX + bx, cellarFloorY);
-    ctx.stroke();
+    ctx.ellipse(centerX + rx, surfaceY + ry, rw * 0.5, rh * 0.5, 0.1, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.lineWidth = 6;
+
+  // 2. ÁNH ĐÈN DẦU HOA KỲ ẤM ÁP THẮP SÁNG RIÊNG KHÔNG GIAN TRONG HẦM (x = 635 = centerX + 35)
+  const flicker = 0.88 + Math.sin(time * 10.5) * 0.12;
+  const lampX = centerX + 35;
+  const lampY = cellarFloorY - 46;
+  const cellarGlow = ctx.createRadialGradient(lampX, lampY, 6, lampX, lampY, 165);
+  cellarGlow.addColorStop(0, `rgba(254, 240, 138, ${0.52 * flicker})`);
+  cellarGlow.addColorStop(0.38, `rgba(245, 158, 11, ${0.28 * flicker})`);
+  cellarGlow.addColorStop(0.75, `rgba(180, 83, 9, ${0.1 * flicker})`);
+  cellarGlow.addColorStop(1, 'rgba(5, 7, 12, 0)');
+  ctx.fillStyle = cellarGlow;
+  ctx.fillRect(innerLeft, surfaceY + 4, innerRight - innerLeft, depth - 2);
+
+  // 3. HỆ CỘT GỖ LIM CHỐNG HẦM, XÀ NGANG & CẦU THANG GỖ ĐI XUỐNG (+60, +120, +180)
+  ctx.fillStyle = '#261b13';
+  ctx.strokeStyle = '#3b2819';
+  ctx.lineWidth = 5.5;
+  // Xà ngang chống trần hầm
+  ctx.fillRect(centerX - 46, surfaceY + 30, 182, 7);
+  // 4 cột gỗ chống hầm chắc chắn
+  for (const px of [-44, 12, 76, 128]) {
+    ctx.fillRect(centerX + px - 4, surfaceY + 32, 8, depth - 32);
+  }
+
+  // Dầm chéo cầu thang gỗ từ miệng nắp hầm (x = 472, dy = 0) xuống đáy hầm (x = 595, dy = +180)
+  ctx.strokeStyle = '#452c1b';
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(centerX - 135, surfaceY);
-  ctx.lineTo(centerX + 135, surfaceY);
+  ctx.moveTo(innerLeft + 8, surfaceY + 5);
+  ctx.lineTo(centerX - 4, cellarFloorY);
+  ctx.moveTo(innerLeft + 22, surfaceY + 5);
+  ctx.lineTo(centerX + 10, cellarFloorY);
   ctx.stroke();
 
-  // Thatched peasant cottage (nhà tranh vách nứa) standing above the secret cellar
-  const hutFloorY = surfaceY - 4;
-  ctx.fillStyle = '#0d111a';
-  ctx.fillRect(centerX - 122, hutFloorY - 88, 10, 88);
-  ctx.fillRect(centerX + 112, hutFloorY - 88, 10, 88);
-  ctx.fillRect(centerX - 52, hutFloorY - 88, 7, 88);
-  ctx.fillRect(centerX + 45, hutFloorY - 88, 7, 88);
+  // Các bậc thang gỗ nhỏ nối liền lối xuống hầm
+  ctx.fillStyle = '#5c3a21';
+  for (let s = 1; s <= 7; s++) {
+    const t = s / 8;
+    const sxStep = innerLeft + 10 + t * 116;
+    const syStep = surfaceY + 6 + t * (depth - 8);
+    ctx.fillRect(sxStep - 12, syStep, 28, 4.5);
+  }
 
-  // Layered straw thatch roof (mái nhà tranh nhiều lớp rơm)
-  ctx.fillStyle = '#131822';
+  // Bàn gỗ nhỏ & cây đèn dầu Hoa Kỳ thắp sáng nơi đặt Bản Cương lĩnh (centerX + 35 = worldX 635)
+  ctx.fillStyle = '#3b2313';
+  ctx.fillRect(lampX - 30, cellarFloorY - 26, 60, 5);
+  ctx.fillRect(lampX - 24, cellarFloorY - 21, 5, 21);
+  ctx.fillRect(lampX + 19, cellarFloorY - 21, 5, 21);
+
+  // Cây đèn dầu leo lét trên cột gỗ cạnh bàn
+  ctx.fillStyle = '#92400e';
+  ctx.fillRect(lampX + 34, lampY - 4, 8, 9);
+  ctx.fillStyle = '#fef08a';
   ctx.beginPath();
-  ctx.moveTo(centerX - 152, hutFloorY - 82);
-  ctx.lineTo(centerX, hutFloorY - 146);
-  ctx.lineTo(centerX + 152, hutFloorY - 82);
+  ctx.arc(lampX + 38, lampY - 8, 3.6 * flicker, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Viền đất đá cắt lớp sắc nét quanh chu vi hầm
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.22)';
+  ctx.lineWidth = 1.6;
+  ctx.strokeRect(innerLeft, surfaceY + 31, innerRight - innerLeft, depth - 31);
+
+  // 4. NGÔI NHÀ TRANH VÁCH NỨA TRÊN MẶT ĐẤT (x = 435..765, surfaceY)
+  const hutFloorY = surfaceY - 2;
+  // Vách phên nứa tối mờ phía sau nhà tranh
+  ctx.fillStyle = '#0c1018';
+  ctx.fillRect(centerX - 144, hutFloorY - 88, 288, 88);
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+  ctx.lineWidth = 1;
+  for (let wx = centerX - 136; wx < centerX + 138; wx += 18) {
+    ctx.beginPath();
+    ctx.moveTo(wx, hutFloorY - 84);
+    ctx.lineTo(wx, hutFloorY);
+    ctx.stroke();
+  }
+
+  // 4 Cột tre / gỗ nhà tranh
+  ctx.fillStyle = '#151b26';
+  for (const cxCol of [-144, -52, 52, 136]) {
+    ctx.fillRect(centerX + cxCol, hutFloorY - 92, 9, 92);
+  }
+
+  // Mái nhà tranh lợp rơm nhiều tầng truyền thống
+  ctx.fillStyle = '#141924';
+  ctx.beginPath();
+  ctx.moveTo(centerX - 172, hutFloorY - 84);
+  ctx.lineTo(centerX, hutFloorY - 154);
+  ctx.lineTo(centerX + 172, hutFloorY - 84);
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(203, 213, 225, 0.18)';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(203, 213, 225, 0.22)';
+  ctx.lineWidth = 1.6;
   ctx.beginPath();
-  ctx.moveTo(centerX - 152, hutFloorY - 82);
-  ctx.lineTo(centerX, hutFloorY - 146);
-  ctx.lineTo(centerX + 152, hutFloorY - 82);
+  ctx.moveTo(centerX - 172, hutFloorY - 84);
+  ctx.lineTo(centerX, hutFloorY - 154);
+  ctx.lineTo(centerX + 172, hutFloorY - 84);
   ctx.stroke();
 
-  // Thatched floor plank platform above cellar (with trapdoor opening hint)
-  ctx.fillStyle = '#231b14';
-  ctx.fillRect(centerX - 130, hutFloorY, 260, 7);
-  ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(centerX - 28, hutFloorY + 0.5, 56, 6);
+  // Cửa nắp hầm gỗ đang mở hé ở góc trái sàn nhà tranh + mũi tên vàng gợi ý [S / ▼] xuống hầm!
+  const hatchX = innerLeft + 44; // world x ~ 508
+  ctx.save();
+  ctx.translate(innerLeft + 6, hutFloorY);
+  ctx.rotate(-0.95);
+  ctx.fillStyle = '#452c1b';
+  ctx.fillRect(0, -5, 46, 5);
+  ctx.strokeStyle = 'rgba(253, 224, 71, 0.55)';
+  ctx.lineWidth = 1.3;
+  ctx.strokeRect(0, -5, 46, 5);
+  ctx.restore();
+
+  const arrowBob = Math.sin(time * 4.2) * 3;
+  ctx.fillStyle = 'rgba(253, 224, 71, 0.78)';
+  ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('▼ Hầm bí mật [S]', hatchX, hutFloorY - 16 + arrowBob);
 
   ctx.restore();
 }
 
 /**
- * Vách đá vôi Pác Bó nhiều tầng rêu phong, Cửa hang Cốc Bó trên cao & Suối Lê-nin chảy bên dưới
+ * Không gian cắt lớp 2D (2D Cutaway Karst Cave):
+ * 3 Bậc đá thác nước Suối Lê-nin (965..1200) dẫn sâu vào lòng Hang đá vôi Cốc Bó — Pác Bó (x = 1200..1550, dy = -146)
  */
 export function drawPacBoKarstAndStream(ctx, cameraX, width, baseGroundY, time) {
   const cliffLeft = 900 - cameraX;
-  const cliffRight = 1650 - cameraX;
+  const cliffRight = 1660 - cameraX;
   if (cliffRight < -120 || cliffLeft > width + 120) return;
 
   ctx.save();
 
-  // Towering multi-tiered limestone cliff face behind platforms (x = 930..1610)
-  const cx = 1335 - cameraX;
-  ctx.fillStyle = '#0a101a';
+  // 1. KHỐI NÚI ĐÁ VÔI PÁC BÓ ĐỒ SỘ & LỚP ĐÁ ĐEN ĐẶC CẮT LỚP BAO QUANH HANG (x = 930..1640)
+  ctx.fillStyle = '#060a11';
   ctx.beginPath();
-  ctx.moveTo(930 - cameraX, baseGroundY + 40);
-  ctx.lineTo(965 - cameraX, baseGroundY - 130);
-  ctx.lineTo(1060 - cameraX, baseGroundY - 195);
-  ctx.lineTo(1180 - cameraX, baseGroundY - 265);
-  ctx.lineTo(1340 - cameraX, baseGroundY - 315);
-  ctx.lineTo(1485 - cameraX, baseGroundY - 255);
-  ctx.lineTo(1595 - cameraX, baseGroundY - 145);
-  ctx.lineTo(1635 - cameraX, baseGroundY + 40);
+  ctx.moveTo(930 - cameraX, baseGroundY + 42);
+  ctx.lineTo(958 - cameraX, baseGroundY - 135);
+  ctx.lineTo(1065 - cameraX, baseGroundY - 215);
+  ctx.lineTo(1185 - cameraX, baseGroundY - 295);
+  ctx.lineTo(1375 - cameraX, baseGroundY - 338);
+  ctx.lineTo(1535 - cameraX, baseGroundY - 292);
+  ctx.lineTo(1615 - cameraX, baseGroundY - 165);
+  ctx.lineTo(1645 - cameraX, baseGroundY + 42);
   ctx.closePath();
   ctx.fill();
 
-  // Mossy slate strata cracks
-  ctx.strokeStyle = 'rgba(52, 211, 153, 0.16)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(1010 - cameraX, baseGroundY - 155);
-  ctx.lineTo(1160 - cameraX, baseGroundY - 190);
-  ctx.moveTo(1195 - cameraX, baseGroundY - 245);
-  ctx.lineTo(1450 - cameraX, baseGroundY - 235);
-  ctx.stroke();
+  // Khối đá đen đặc cắt lớp (Cutaway Solid Rock Mass) phía trên và bên phải lòng hang Cốc Bó (1195..1565)
+  const caveLeft = 1198 - cameraX;
+  const caveRight = 1546 - cameraX;
+  const caveW = caveRight - caveLeft;
+  const caveFloorY = baseGroundY - 146;
+  const caveCeilY = caveFloorY - 112;
 
-  // Cửa hang Pác Bó trên cao (ngay sau bục p1_rock3 ở x = 1340, dy = -148)
-  const caveFloorY = baseGroundY - 148;
-  const caveGlow = ctx.createRadialGradient(cx, caveFloorY - 40, 6, cx, caveFloorY - 40, 88);
-  caveGlow.addColorStop(0, 'rgba(253, 224, 71, 0.26)');
-  caveGlow.addColorStop(1, 'rgba(5, 8, 15, 0.92)');
-  ctx.fillStyle = '#04060a';
+  ctx.fillStyle = '#030508';
   ctx.beginPath();
-  ctx.moveTo(cx - 64, caveFloorY + 2);
-  ctx.quadraticCurveTo(cx - 58, caveFloorY - 92, cx, caveFloorY - 98);
-  ctx.quadraticCurveTo(cx + 62, caveFloorY - 90, cx + 66, caveFloorY + 2);
+  ctx.moveTo(caveLeft - 14, caveFloorY + 34);
+  ctx.lineTo(caveLeft - 10, caveCeilY - 38);
+  ctx.lineTo(caveLeft + caveW * 0.5, caveCeilY - 58);
+  ctx.lineTo(caveRight + 32, caveCeilY - 28);
+  ctx.lineTo(caveRight + 38, baseGroundY + 32);
+  ctx.lineTo(caveLeft - 14, baseGroundY + 32);
   ctx.closePath();
   ctx.fill();
+
+  // 2. KHOANG NỘI THẤT HANG ĐÁ VÔI CỐC BÓ CẮT LỚP 2D (x = 1200..1546, floor = baseGroundY - 146)
+  ctx.fillStyle = '#0b121e';
+  ctx.beginPath();
+  ctx.moveTo(caveLeft, caveFloorY + 2);
+  ctx.lineTo(caveLeft + 8, caveCeilY + 18);
+  ctx.quadraticCurveTo(caveLeft + caveW * 0.35, caveCeilY - 8, caveLeft + caveW * 0.68, caveCeilY + 4);
+  ctx.quadraticCurveTo(caveRight - 8, caveCeilY + 18, caveRight, caveFloorY + 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Ánh lửa / ánh đèn ấm áp soi sáng Bàn đá Bác Hồ làm việc sâu trong hang (x = 1435)
+  const tableSx = 1435 - cameraX;
+  const flicker = 0.9 + Math.sin(time * 8.5) * 0.1;
+  const caveGlow = ctx.createRadialGradient(tableSx, caveFloorY - 38, 6, tableSx, caveFloorY - 38, 155);
+  caveGlow.addColorStop(0, `rgba(254, 240, 138, ${0.46 * flicker})`);
+  caveGlow.addColorStop(0.45, `rgba(245, 158, 11, ${0.2 * flicker})`);
+  caveGlow.addColorStop(1, 'rgba(4, 7, 13, 0)');
   ctx.fillStyle = caveGlow;
   ctx.fill();
 
-  // Stalactites hanging from cave arch
-  ctx.fillStyle = '#0d1522';
-  for (const dx of [-34, -14, 12, 32]) {
+  // Viền đá cắt lớp rêu phong quanh vòm hang
+  ctx.strokeStyle = 'rgba(52, 211, 153, 0.25)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Nhũ đá vôi (Stalactites) rủ xuống từ trần hang & Măng đá (Stalagmites) mọc dưới nền hang
+  ctx.fillStyle = '#04070d';
+  const stalactites = [28, 68, 108, 154, 198, 246, 292, 326];
+  for (let i = 0; i < stalactites.length; i++) {
+    const sxSt = caveLeft + stalactites[i];
+    const len = 18 + (i % 3) * 11;
+    const topY = caveCeilY + (i === 0 || i === 7 ? 16 : 2);
     ctx.beginPath();
-    ctx.moveTo(cx + dx - 5, caveFloorY - 86);
-    ctx.lineTo(cx + dx, caveFloorY - 66 - Math.abs(dx) * 0.2);
-    ctx.lineTo(cx + dx + 5, caveFloorY - 86);
+    ctx.moveTo(sxSt - 6, topY);
+    ctx.lineTo(sxSt, topY + len);
+    ctx.lineTo(sxSt + 6, topY);
+    ctx.closePath();
     ctx.fill();
   }
 
-  // Suối Lê-nin xanh ngọc chảy dưới chân vách đá (x = 995..1545, dy = +28)
-  const sLeft = 990 - cameraX;
-  const sRight = 1550 - cameraX;
+  // Bàn đá chông chênh & ghế đá tự nhiên nơi Bác Hồ làm việc và sáng lập Mặt trận Việt Minh (x = 1395..1470)
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.moveTo(tableSx - 34, caveFloorY - 22);
+  ctx.lineTo(tableSx + 28, caveFloorY - 24);
+  ctx.lineTo(tableSx + 24, caveFloorY - 16);
+  ctx.lineTo(tableSx - 30, caveFloorY - 15);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#151e2e';
+  ctx.fillRect(tableSx - 22, caveFloorY - 16, 12, 16);
+  ctx.fillRect(tableSx + 8, caveFloorY - 16, 11, 16);
+  // Ghế đá nhỏ bên cạnh bàn đá
+  ctx.fillRect(tableSx - 48, caveFloorY - 13, 14, 13);
+
+  // Khe suối ngầm xanh ngọc chảy từ lòng hang Cốc Bó ra miệng thác (x = 1200..1365)
+  ctx.fillStyle = 'rgba(45, 212, 191, 0.38)';
+  ctx.fillRect(caveLeft, caveFloorY - 3, 165, 5);
+
+  // 3. THÁC NƯỚC 3 TẦNG TRẮNG XÓA ĐỔ TỪ CỬA HANG CỐC BÓ XUỐNG SUỐI LÊ-NIN (x = 965..1205)
+  const cascadeSteps = [
+    { xTop: 1196, yTop: baseGroundY - 146, xBot: 1152, yBot: baseGroundY - 96, w: 22 },
+    { xTop: 1085, yTop: baseGroundY - 96, xBot: 1042, yBot: baseGroundY - 46, w: 26 },
+    { xTop: 982, yTop: baseGroundY - 46, xBot: 998, yBot: baseGroundY + 20, w: 30 },
+  ];
+  for (let c = 0; c < cascadeSteps.length; c++) {
+    const cs = cascadeSteps[c];
+    const x1 = cs.xTop - cameraX;
+    const x2 = cs.xBot - cameraX;
+    const wfGrad = ctx.createLinearGradient(x1, cs.yTop, x2, cs.yBot);
+    wfGrad.addColorStop(0, 'rgba(204, 251, 241, 0.62)');
+    wfGrad.addColorStop(0.55, 'rgba(45, 212, 191, 0.42)');
+    wfGrad.addColorStop(1, 'rgba(153, 246, 228, 0.22)');
+    ctx.fillStyle = wfGrad;
+    ctx.beginPath();
+    ctx.moveTo(x1 - cs.w * 0.5, cs.yTop);
+    ctx.quadraticCurveTo((x1 + x2) * 0.5 - 6, (cs.yTop + cs.yBot) * 0.5, x2 - cs.w * 0.65, cs.yBot);
+    ctx.lineTo(x2 + cs.w * 0.65, cs.yBot);
+    ctx.quadraticCurveTo((x1 + x2) * 0.5 + 6, (cs.yTop + cs.yBot) * 0.5, x1 + cs.w * 0.5, cs.yTop);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bọt nước trắng xóa tung bọt dưới chân mỗi bậc thác
+    const foamR = 10 + Math.sin(time * 7 + c * 1.7) * 2.5;
+    ctx.fillStyle = 'rgba(240, 253, 250, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(x2, cs.yBot, foamR * 1.5, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. DÒNG SUỐI LÊ-NIN XANH NGỌC CHẢY DƯỚI CHÂN VÁCH ĐÁ (x = 990..1565, dy = +28)
+  const sLeft = 988 - cameraX;
+  const sRight = 1568 - cameraX;
   const waterY = baseGroundY + 18;
   const waterGrad = ctx.createLinearGradient(0, waterY, 0, waterY + 22);
-  waterGrad.addColorStop(0, 'rgba(45, 212, 191, 0.42)');
-  waterGrad.addColorStop(1, 'rgba(15, 118, 110, 0.18)');
+  waterGrad.addColorStop(0, 'rgba(45, 212, 191, 0.46)');
+  waterGrad.addColorStop(1, 'rgba(15, 118, 110, 0.2)');
   ctx.fillStyle = waterGrad;
   ctx.fillRect(sLeft, waterY, sRight - sLeft, 20);
 
-  // Shimmering animated water ripples
-  ctx.strokeStyle = 'rgba(153, 246, 228, 0.48)';
-  ctx.lineWidth = 1.3;
-  for (let wx = 1015; wx < 1525; wx += 48) {
-    const rx = wx - cameraX + Math.sin(time * 2.6 + wx) * 8;
+  ctx.strokeStyle = 'rgba(153, 246, 228, 0.52)';
+  ctx.lineWidth = 1.4;
+  for (let wx = 1010; wx < 1545; wx += 46) {
+    const rx = wx - cameraX + Math.sin(time * 2.8 + wx) * 8;
     ctx.beginPath();
     ctx.moveTo(rx, waterY + 5);
     ctx.lineTo(rx + 22, waterY + 5);
@@ -1563,38 +1755,35 @@ export function drawFrenchTank(ctx, sx, gy, facingDir, time) {
 }
 
 /**
- * Dãy nhà phố cổ Hà Nội 2 tầng sát nhau (mái ngói nghiêng, cửa sổ chớp gỗ, ban công sắt)
- * & Chiến lũy Toa tàu điện cũ + Bao cát dưới lòng đường
+ * Dãy nhà phố cổ Hà Nội 2 tầng sát nhau & KHÔNG GIAN CẮT LỚP 2D (2D Cutaway Interior)
+ * tại ngôi nhà phố cổ 2 tầng bị bom đạn bắn vỡ mảng tường (x = 1050..1350):
+ * Đi vào tầng 1 -> leo cầu thang gỗ lên gác xép -> ra ban công tầng 2 kích hoạt Loa truyền thanh 19/12/1946!
  */
 export function drawOldHanoiStreetscape(ctx, cameraX, width, getGroundY, time) {
-  if (cameraX > 1640) return;
+  if (cameraX > 1660) return;
   ctx.save();
 
-  // Row of contiguous 2-story Old Hanoi shophouses from x = 760 to x = 1480
-  const houses = [
+  // 1. Các ngôi nhà phố cổ Hà Nội liền kề hai bên căn nhà cắt lớp (770..1050 & 1350..1485)
+  const exteriorHouses = [
     { x: 770, w: 118, h: 192, roofH: 28, lit: true },
     { x: 888, w: 162, h: 204, roofH: 32, lit: false },
-    { x: 1050, w: 215, h: 144, roofH: 34, lit: true, walkableRoof: true },
-    { x: 1265, w: 158, h: 196, roofH: 30, lit: true },
+    { x: 1350, w: 136, h: 198, roofH: 30, lit: true },
   ];
 
-  for (const hs of houses) {
+  for (const hs of exteriorHouses) {
     const sx = hs.x - cameraX;
     if (sx + hs.w < -80 || sx > width + 80) continue;
     const gy = getGroundY(hs.x + hs.w * 0.5);
 
-    // Shophouse masonry facade
     ctx.fillStyle = '#150c0c';
     ctx.fillRect(sx, gy - hs.h, hs.w, hs.h + 4);
     ctx.strokeStyle = 'rgba(251, 146, 60, 0.14)';
     ctx.lineWidth = 1.2;
     ctx.strokeRect(sx, gy - hs.h, hs.w, hs.h);
 
-    // Molded colonial cornice between 1st & 2nd floor
     ctx.fillStyle = '#241413';
     ctx.fillRect(sx - 3, gy - 102, hs.w + 6, 6);
 
-    // Sloped Yin-Yang tiled roof (mái ngói nghiêng phố cổ)
     ctx.fillStyle = '#21100e';
     ctx.beginPath();
     ctx.moveTo(sx - 6, gy - hs.h);
@@ -1603,7 +1792,6 @@ export function drawOldHanoiStreetscape(ctx, cameraX, width, getGroundY, time) {
     ctx.closePath();
     ctx.fill();
 
-    // Tile rib lines
     ctx.strokeStyle = 'rgba(251, 191, 36, 0.2)';
     ctx.lineWidth = 1.2;
     for (let tx = 12; tx < hs.w; tx += 16) {
@@ -1613,15 +1801,13 @@ export function drawOldHanoiStreetscape(ctx, cameraX, width, getGroundY, time) {
       ctx.stroke();
     }
 
-    // 2nd-floor Louvered Wooden Shutters (cửa sổ chớp gỗ)
-    const winY = hs.walkableRoof ? gy - 92 : gy - 166;
+    const winY = gy - 166;
     for (let wx = sx + 22; wx < sx + hs.w - 34; wx += 52) {
       ctx.fillStyle = hs.lit ? 'rgba(251, 146, 60, 0.28)' : '#0b0607';
       ctx.fillRect(wx, winY, 24, 38);
       ctx.strokeStyle = '#3f231d';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(wx, winY, 24, 38);
-      // Horizontal shutter slats
       ctx.lineWidth = 1;
       for (let sy = winY + 6; sy < winY + 35; sy += 5) {
         ctx.beginPath();
@@ -1631,47 +1817,154 @@ export function drawOldHanoiStreetscape(ctx, cameraX, width, getGroundY, time) {
       }
     }
 
-    // 1st-floor arched shopfront doors
-    for (let dx = sx + 26; dx < sx + hs.w - 42; dx += 66) {
+    for (let dx = sx + 24; dx < sx + hs.w - 40; dx += 66) {
       ctx.fillStyle = '#090506';
       fillRoundedRect(ctx, dx, gy - 68, 34, 68, [16, 16, 0, 0]);
     }
   }
 
-  // Street-level Old Hanoi Tramcar ("Toa tàu điện cũ Hà Nội" lật nghiêng làm chiến lũy ở x = 930..1120)
-  const tramX = 940 - cameraX;
-  const tramGy = getGroundY(1020);
+  // 2. NGÔI NHÀ PHỐ CỔ 2 TẦNG CẮT LỚP 2D (x = 1050..1350, w = 300, h = 236)
+  const cutSx = 1050 - cameraX;
+  const cutW = 300;
+  const cutH = 236;
+  if (cutSx + cutW > -90 && cutSx < width + 90) {
+    const gy = getGroundY(1200);
+    const flicker = 0.88 + Math.sin(time * 9.8) * 0.12;
+
+    // Viền tường gạch & mái ngói đen đặc cắt lớp bao quanh ngôi nhà 2 tầng
+    ctx.fillStyle = '#070405';
+    ctx.fillRect(cutSx - 8, gy - cutH, cutW + 16, cutH + 4);
+
+    // Mái ngói âm dương phía trên căn nhà cổ bị bom xé rách một góc
+    ctx.fillStyle = '#1b0c0b';
+    ctx.beginPath();
+    ctx.moveTo(cutSx - 12, gy - cutH);
+    ctx.lineTo(cutSx + 95, gy - cutH - 36);
+    ctx.lineTo(cutSx + 165, gy - cutH - 18); // Vết đạn pháo sứt mái
+    ctx.lineTo(cutSx + 225, gy - cutH - 34);
+    ctx.lineTo(cutSx + cutW + 12, gy - cutH);
+    ctx.closePath();
+    ctx.fill();
+
+    // Không gian nội thất 2 tầng cắt lớp bên trong (ấm áp ánh đèn dầu kháng chiến)
+    ctx.fillStyle = '#140b0a';
+    ctx.fillRect(cutSx + 8, gy - cutH + 10, cutW - 16, cutH - 12);
+
+    // Hai vùng sáng đèn dầu ấm ở Tầng 1 (cầu thang gỗ) & Tầng 2 (ban công loa truyền thanh)
+    const glow1 = ctx.createRadialGradient(cutSx + 115, gy - 62, 6, cutSx + 115, gy - 62, 145);
+    glow1.addColorStop(0, `rgba(251, 146, 60, ${0.38 * flicker})`);
+    glow1.addColorStop(0.6, `rgba(180, 83, 9, ${0.14 * flicker})`);
+    glow1.addColorStop(1, 'rgba(10, 5, 5, 0)');
+    ctx.fillStyle = glow1;
+    ctx.fillRect(cutSx + 8, gy - 140, cutW - 16, 140);
+
+    const glow2 = ctx.createRadialGradient(cutSx + 235, gy - 178, 5, cutSx + 235, gy - 178, 130);
+    glow2.addColorStop(0, `rgba(254, 240, 138, ${0.42 * flicker})`);
+    glow2.addColorStop(0.55, `rgba(234, 88, 12, ${0.18 * flicker})`);
+    glow2.addColorStop(1, 'rgba(10, 5, 5, 0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(cutSx + 8, gy - cutH + 10, cutW - 16, 125);
+
+    // Dầm sàn gỗ Tầng 2 (cao độ dy = -142 khớp với p2_tram_top) & Cột gỗ lim trong nhà
+    ctx.fillStyle = '#291510';
+    ctx.fillRect(cutSx + 178, gy - 142, cutW - 186, 8);
+    ctx.fillRect(cutSx + 8, gy - cutH + 10, 10, cutH - 12);
+    ctx.fillRect(cutSx + cutW - 16, gy - 134, 10, 134); // Tường phải tầng 1 bị chặn bởi chiến lũy, mở thông ở tầng 2 ra ban công!
+
+    // Đồ đạc nội thất Hà Nội xưa: Tủ chè gỗ, khung tranh hoành phi & vết tường gạch vỡ
+    ctx.fillStyle = '#24120d';
+    ctx.fillRect(cutSx + 196, gy - 44, 62, 44);
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.25)';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(cutSx + 202, gy - 38, 50, 26);
+    // Khung bức hoành phi trên tường tầng 1 & tầng 2
+    ctx.strokeRect(cutSx + 204, gy - 96, 44, 20);
+    ctx.strokeRect(cutSx + 72, gy - 196, 38, 24);
+
+    // Dầm chéo Cầu thang gỗ nội thất dẫn từ cửa Tầng 1 (1070, gy) -> Nhịp 1 (-50) -> Gác xép (-98) -> Tầng 2 (-142)!
+    ctx.strokeStyle = '#5c341d';
+    ctx.lineWidth = 5.5;
+    ctx.beginPath();
+    ctx.moveTo(cutSx + 24, gy);
+    ctx.lineTo(cutSx + 205, gy - 142);
+    ctx.stroke();
+    // Tay vịn lan can cầu thang gỗ
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.36)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(cutSx + 24, gy - 24);
+    ctx.lineTo(cutSx + 205, gy - 166);
+    ctx.stroke();
+    for (let post = 0; post <= 5; post++) {
+      const t = post / 5;
+      const px = cutSx + 24 + t * 181;
+      const py = gy - t * 142;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px, py - 24);
+      ctx.stroke();
+    }
+
+    // Mép tường gạch nham nhở bị đạn pháo bắn vỡ tạo hiệu ứng Mặt cắt Cutaway chân thực!
+    ctx.fillStyle = '#1f0e0c';
+    const jaggedLeft = [
+      [0, 0],
+      [22, -16],
+      [14, -46],
+      [26, -78],
+      [12, -118],
+      [28, -162],
+      [18, -205],
+      [34, -cutH],
+      [0, -cutH],
+    ];
+    ctx.beginPath();
+    jaggedLeft.forEach(([jx, jy], idx) => {
+      if (idx === 0) ctx.moveTo(cutSx + jx, gy + jy);
+      else ctx.lineTo(cutSx + jx, gy + jy);
+    });
+    ctx.closePath();
+    ctx.fill();
+
+    // Cổng vòm mở vào tầng 1 nhà cổ (x = 1052..1094) + Gợi ý leo cầu thang gỗ lên tầng 2
+    ctx.fillStyle = 'rgba(253, 224, 71, 0.8)';
+    ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('▲ Cầu thang lên Tầng 2 [W]', cutSx + 28, gy - 14 + Math.sin(time * 4) * 2.5);
+  }
+
+  // 3. Toa tàu điện cũ Hà Nội lật nghiêng làm chiến lũy đầu phố (x = 875..1035, trước cửa nhà cắt lớp)
+  const tramX = 875 - cameraX;
+  const tramGy = getGroundY(955);
   if (tramX > -240 && tramX < width + 240) {
     ctx.save();
     ctx.translate(tramX, tramGy);
     ctx.fillStyle = '#261411';
-    fillRoundedRect(ctx, 0, -64, 178, 62, [8, 8, 2, 2]);
+    fillRoundedRect(ctx, 0, -62, 160, 60, [8, 8, 2, 2]);
     ctx.strokeStyle = 'rgba(251, 191, 36, 0.34)';
     ctx.lineWidth = 1.6;
-    ctx.strokeRect(2, -62, 174, 58);
+    ctx.strokeRect(2, -60, 156, 56);
 
-    // Tram windows & overhead trolley pole
     ctx.fillStyle = 'rgba(253, 224, 71, 0.14)';
-    for (let w = 14; w < 160; w += 30) {
-      ctx.fillRect(w, -52, 20, 22);
+    for (let w = 14; w < 144; w += 28) {
+      ctx.fillRect(w, -50, 18, 20);
     }
     ctx.strokeStyle = '#57534e';
     ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(88, -64);
-    ctx.lineTo(132, -92);
+    ctx.moveTo(80, -62);
+    ctx.lineTo(122, -88);
     ctx.stroke();
 
-    // Stacked sandbags & wooden tables/wheels piled around the tram barricade
     ctx.fillStyle = '#312118';
-    for (let sb = -26; sb <= 180; sb += 24) {
-      fillRoundedRect(ctx, sb, -16, 22, 10, 4);
-      fillRoundedRect(ctx, sb + 6, -25, 20, 9, 4);
+    for (let sb = -22; sb <= 156; sb += 24) {
+      fillRoundedRect(ctx, sb, -15, 22, 10, 4);
+      fillRoundedRect(ctx, sb + 6, -24, 20, 9, 4);
     }
     ctx.restore();
   }
 
-  // Menacing French Armored Tank halted outside the street barricade (x = 710)
+  // Menacing French Armored Tank halted outside the street barricade (x = 695)
   const tankSx = 695 - cameraX;
   if (tankSx > -140 && tankSx < width + 140) {
     drawFrenchTank(ctx, tankSx, getGroundY(695), 1, time);
@@ -1696,11 +1989,11 @@ export function drawDienBienFortress(
   if (cameraX + width < 2000) return;
   ctx.save();
 
-  // 1. Timber trench stakes inside the 3 sunken trenches
+  // 1. Cọc gỗ gia cố vách 3 Hố giao thông hào Điện Biên Phủ (khớp 100% với groundProfile storyData.js)
   const trenchRanges = [
-    [2110, 2200],
-    [2308, 2400],
-    [2498, 2568],
+    [2100, 2190],
+    [2276, 2366],
+    [2438, 2510],
   ];
   ctx.fillStyle = '#1c110d';
   for (const [t1, t2] of trenchRanges) {
@@ -1708,12 +2001,12 @@ export function drawDienBienFortress(
       const sx = wx - cameraX;
       if (sx < -40 || sx > width + 40) continue;
       const floorY = getGroundY(wx);
-      ctx.fillRect(sx - 2, baseGroundY + 2, 4, floorY - baseGroundY);
+      ctx.fillRect(sx - 2, baseGroundY + 2, 4, Math.max(8, floorY - baseGroundY));
     }
   }
 
   // 2. Hàng rào dây thép gai chữ A (A-frame barbed wire) trên các ụ đất giữa giao thông hào
-  const wirePosts = [2085, 2252, 2450];
+  const wirePosts = [2080, 2232, 2404];
   for (const wx of wirePosts) {
     const sx = wx - cameraX;
     if (sx < -60 || sx > width + 60) continue;
@@ -1742,7 +2035,7 @@ export function drawDienBienFortress(
   const pbDestroyed =
     completedQtes.has('qte_2a') || Boolean(dienBienCombat && dienBienCombat.pillboxDestroyed);
   const pbX = 2592 - cameraX + pbShake;
-  if (pbX > -160 && pbX < width + 160) {
+  if (pbX > -180 && pbX < width + 180) {
     const gy = getGroundY(2592);
     if (pbDestroyed) {
       // Lô cốt bê tông đã bị bộc phá đánh sập thành đống gạch vụn bốc khói!
@@ -1793,6 +2086,46 @@ export function drawDienBienFortress(
       ctx.fillStyle = '#3f2e21';
       for (let sb = -44; sb <= 26; sb += 18) {
         fillRoundedRect(ctx, pbX + sb, gy - 11, 17, 9, 3.5);
+      }
+
+      // KHỐI BỘC PHÁ HẸN GIỜ 2.0 GIÂY NHẤP NHÁY ĐỎ SÁT VÁCH LÔ CỐT!
+      if (dienBienCombat && dienBienCombat.plantedCharge) {
+        const pc = dienBienCombat.plantedCharge;
+        const urgentBlink = Math.sin(time * (pc.timer < 0.85 ? 38 : 22)) > 0;
+        const chargeSx = pbX - 34;
+        const chargeSy = gy - 14;
+
+        // Vùng bán kính nổ nguy hiểm nhấp nháy đỏ trên mặt đất phẳng trước Lô cốt (2518..2610)
+        ctx.fillStyle = urgentBlink ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.12)';
+        ctx.beginPath();
+        ctx.ellipse(chargeSx + 10, gy, 72, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = urgentBlink ? '#f87171' : 'rgba(248, 113, 113, 0.45)';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Ống bộc phá bọc vải đỏ & ngòi nổ xẹt tia lửa vàng rực
+        ctx.fillStyle = urgentBlink ? '#ef4444' : '#991b1b';
+        fillRoundedRect(ctx, chargeSx - 12, chargeSy - 7, 24, 11, 3);
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(chargeSx - 8, chargeSy - 6, 16, 9);
+
+        // Tia lửa dây cháy chậm
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(chargeSx - 14, chargeSy - 3, urgentBlink ? 5.2 : 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Nhãn đồng hồ đếm ngược 2.0s nổi bật giục người chơi lùi nhanh xuống Hào số 3!
+        ctx.font = '700 11.5px "Be Vietnam Pro", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = urgentBlink ? '#fef08a' : '#fca5a5';
+        ctx.fillText(
+          `💥 BỘC PHÁ ${Math.max(0, pc.timer).toFixed(1)}s — LÙI VỀ HÀO!`,
+          chargeSx - 8,
+          gy - 56
+        );
       }
     }
   }
@@ -1935,85 +2268,165 @@ export function drawBaDinhTribune(ctx, cameraX, width, getGroundY, won1B, time) 
 // ============================================================================
 
 /**
- * Trạm giao liên Trường Sơn ẩn trong hốc đá có bếp lửa Hoàng Cầm bập bùng (x = 580)
+ * Không gian cắt lớp 2D (2D Cutaway Underground):
+ * Hầm chữ A chỉ huy Trường Sơn sâu dưới rễ cây cổ thụ rừng già (x = 450..750, dy = +170px),
+ * bên trong có khung gỗ chữ A chống bom, bếp Hoàng Cầm ấm áp và bàn tác chiến đặt Bức thư Đại hội III!
  */
 export function drawRockCaveLiaisonPost(ctx, cameraX, width, getGroundY, time) {
-  const sx = 580 - cameraX;
-  if (sx < -220 || sx > width + 220) return;
-  const gy = getGroundY(580);
+  const centerX = 600 - cameraX;
+  if (centerX < -260 || centerX > width + 260) return;
+
+  const surfaceY = getGroundY(442); // Mặt đất rừng Trường Sơn (dy = 0)
+  const bunkerFloorY = getGroundY(600); // Đáy Hầm chữ A ngầm (dy = +170)
+  const depth = Math.max(120, bunkerFloorY - surfaceY);
+  const innerLeft = centerX - 136; // world x = 464
+  const innerRight = centerX + 136; // world x = 736
 
   ctx.save();
 
-  // Overhanging Trường Sơn jungle rock shelter (hốc đá tự nhiên)
-  ctx.fillStyle = '#05131a';
+  // 1. CÂY CỔ THỤ RỪNG GIÀ TRƯỜNG SƠN & BỘ RỄ BẠNH VÈ TRÊN NÓC HẦM (surfaceY)
+  ctx.fillStyle = '#041017';
+  // Thân cây đại ngàn vươn cao che rợp nóc hầm chữ A
   ctx.beginPath();
-  ctx.moveTo(sx - 125, gy + 12);
-  ctx.lineTo(sx - 108, gy - 98);
-  ctx.lineTo(sx - 38, gy - 142);
-  ctx.lineTo(sx + 58, gy - 132);
-  ctx.lineTo(sx + 118, gy - 72);
-  ctx.lineTo(sx + 105, gy + 12);
+  ctx.moveTo(centerX - 42, surfaceY + 4);
+  ctx.quadraticCurveTo(centerX - 18, surfaceY - 48, centerX - 14, surfaceY - 168);
+  ctx.lineTo(centerX - 66, surfaceY - 216);
+  ctx.lineTo(centerX - 50, surfaceY - 224);
+  ctx.lineTo(centerX - 4, surfaceY - 178);
+  ctx.lineTo(centerX + 18, surfaceY - 182);
+  ctx.lineTo(centerX + 74, surfaceY - 220);
+  ctx.lineTo(centerX + 86, surfaceY - 208);
+  ctx.lineTo(centerX + 26, surfaceY - 162);
+  ctx.quadraticCurveTo(centerX + 34, surfaceY - 46, centerX + 72, surfaceY + 4);
   ctx.closePath();
   ctx.fill();
 
-  // Inner dark rock alcove hollow
-  ctx.fillStyle = '#030a0e';
-  ctx.beginPath();
-  ctx.moveTo(sx - 78, gy + 4);
-  ctx.quadraticCurveTo(sx - 68, gy - 84, sx + 4, gy - 88);
-  ctx.quadraticCurveTo(sx + 72, gy - 80, sx + 78, gy + 4);
-  ctx.closePath();
-  ctx.fill();
+  // Tán lá rừng già Trường Sơn rậm rạp
+  ctx.fillStyle = '#061822';
+  for (const [cx, cy, cr] of [
+    [0, -225, 76],
+    [-64, -206, 52],
+    [72, -204, 56],
+  ]) {
+    ctx.beginPath();
+    ctx.arc(centerX + cx, surfaceY + cy, cr, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-  // Warm flickering campfire glow inside the rock cave
-  const flicker = 0.86 + Math.sin(time * 11.5) * 0.14;
-  const fireX = sx - 16;
-  const fireGlow = ctx.createRadialGradient(fireX, gy - 18, 4, fireX, gy - 22, 86);
-  fireGlow.addColorStop(0, `rgba(251, 146, 60, ${0.55 * flicker})`);
-  fireGlow.addColorStop(0.5, `rgba(234, 88, 12, ${0.22 * flicker})`);
-  fireGlow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+  // 2. NỀN ĐẤT ĐÁ ĐEN ĐẶC CẮT LỚP BAO QUANH HẦM CHỮ A (Pitch-Black Cutaway Earth)
+  ctx.fillStyle = '#020609';
+  ctx.fillRect(centerX - 176, surfaceY, 352, depth + 36);
+
+  // Khoang hầm ngầm bên dưới (chừa giếng cầu thang mở bên trái x = 464..552)
+  ctx.fillStyle = '#07131a';
+  ctx.fillRect(innerLeft, surfaceY + 30, innerRight - innerLeft, depth - 28);
+  ctx.fillRect(innerLeft, surfaceY + 2, 88, 32);
+
+  // Trần đất đá đen đặc dày 30px phía trên nóc hầm (x = 552..744) + Rễ cây đâm xuyên lớp đất
+  ctx.fillStyle = '#03080d';
+  ctx.fillRect(centerX - 48, surfaceY + 2, 192, 30);
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 2.2;
+  for (const rx of [-28, 16, 62, 108]) {
+    ctx.beginPath();
+    ctx.moveTo(centerX + rx, surfaceY + 2);
+    ctx.quadraticCurveTo(centerX + rx - 6, surfaceY + 18, centerX + rx + 5, surfaceY + 35);
+    ctx.stroke();
+  }
+
+  // 3. ÁNH LỬA BẾP HOÀNG CẦM ẤM ÁP THẮP SÁNG RIÊNG TRONG HẦM CHỮ A
+  const flicker = 0.87 + Math.sin(time * 11.5) * 0.13;
+  const fireX = centerX - 18; // world x = 582
+  const tableX = centerX + 42; // world x = 642 (nơi đặt act3_item1!)
+  const fireGlow = ctx.createRadialGradient(fireX + 18, bunkerFloorY - 34, 6, fireX + 18, bunkerFloorY - 34, 168);
+  fireGlow.addColorStop(0, `rgba(251, 146, 60, ${0.54 * flicker})`);
+  fireGlow.addColorStop(0.42, `rgba(234, 88, 12, ${0.25 * flicker})`);
+  fireGlow.addColorStop(0.78, `rgba(180, 83, 9, ${0.09 * flicker})`);
+  fireGlow.addColorStop(1, 'rgba(3, 8, 12, 0)');
   ctx.fillStyle = fireGlow;
-  ctx.beginPath();
-  ctx.arc(fireX, gy - 22, 86, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(innerLeft, surfaceY + 4, innerRight - innerLeft, depth - 2);
 
-  // Crossed firewood logs & dancing campfire flames
-  ctx.strokeStyle = '#3f2315';
-  ctx.lineWidth = 4;
+  // 4. HỆ KÈO GỖ RỪNG CHỮ A ĐẶC TRƯNG TRƯỜNG SƠN (Iconic A-Frame Timber Bracing!)
+  ctx.strokeStyle = '#3b2416';
+  ctx.lineWidth = 6.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const aFrames = [centerX - 8, centerX + 68];
+  for (const ax of aFrames) {
+    ctx.beginPath();
+    ctx.moveTo(ax - 54, bunkerFloorY);
+    ctx.lineTo(ax, surfaceY + 34);
+    ctx.lineTo(ax + 54, bunkerFloorY);
+    // Thanh giằng ngang chữ A!
+    ctx.moveTo(ax - 29, surfaceY + 34 + (depth - 34) * 0.54);
+    ctx.lineTo(ax + 29, surfaceY + 34 + (depth - 34) * 0.54);
+    ctx.stroke();
+  }
+  // Lớp gỗ tròn lát trần chống mảnh bom trên đỉnh chữ A
+  ctx.fillStyle = '#291910';
+  for (let lx = centerX - 46; lx <= centerX + 126; lx += 14) {
+    ctx.beginPath();
+    ctx.arc(lx, surfaceY + 31, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Cầu thang gỗ dốc từ cửa hầm (x = 468, surfaceY) xuống đáy Hầm chữ A (+56, +114, +170)
+  ctx.strokeStyle = '#4a2e1b';
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(fireX - 14, gy - 2);
-  ctx.lineTo(fireX + 14, gy - 9);
-  ctx.moveTo(fireX + 14, gy - 2);
-  ctx.lineTo(fireX - 14, gy - 9);
+  ctx.moveTo(innerLeft + 8, surfaceY + 5);
+  ctx.lineTo(centerX - 10, bunkerFloorY);
+  ctx.moveTo(innerLeft + 22, surfaceY + 5);
+  ctx.lineTo(centerX + 4, bunkerFloorY);
   ctx.stroke();
+  ctx.fillStyle = '#623d24';
+  for (let s = 1; s <= 7; s++) {
+    const t = s / 8;
+    const sxStep = innerLeft + 10 + t * 110;
+    const syStep = surfaceY + 6 + t * (depth - 8);
+    ctx.fillRect(sxStep - 12, syStep, 28, 4.5);
+  }
 
+  // Bếp Hoàng Cầm âm đất tản khói & Nồi quân dụng + Bàn tre chỉ huy (x = 642)
+  ctx.fillStyle = '#1c1411';
+  ctx.fillRect(fireX - 18, bunkerFloorY - 12, 36, 12);
   ctx.fillStyle = '#ea580c';
   ctx.beginPath();
-  ctx.moveTo(fireX - 10, gy - 5);
+  ctx.moveTo(fireX - 9, bunkerFloorY - 6);
   ctx.quadraticCurveTo(
-    fireX - 2 + Math.sin(time * 14) * 3,
-    gy - 32 * flicker,
-    fireX + 10,
-    gy - 5
+    fireX + Math.sin(time * 14) * 2.5,
+    bunkerFloorY - 29 * flicker,
+    fireX + 9,
+    bunkerFloorY - 6
   );
   ctx.fill();
-
   ctx.fillStyle = '#fde047';
   ctx.beginPath();
-  ctx.moveTo(fireX - 5, gy - 5);
+  ctx.moveTo(fireX - 4.5, bunkerFloorY - 6);
   ctx.quadraticCurveTo(
     fireX + Math.cos(time * 16) * 2,
-    gy - 21 * flicker,
-    fireX + 5,
-    gy - 5
+    bunkerFloorY - 19 * flicker,
+    fireX + 4.5,
+    bunkerFloorY - 6
   );
   ctx.fill();
 
-  // Hanging field canteen & oil lantern on rock hook
-  ctx.fillStyle = '#1e293b';
-  ctx.beginPath();
-  ctx.arc(sx + 38, gy - 52, 6, 0, Math.PI * 2);
-  ctx.fill();
+  // Bàn tre dã chiến nơi đặt Bức thư Đại hội III (tableX = world x 642)
+  ctx.fillStyle = '#3f2a18';
+  ctx.fillRect(tableX - 28, bunkerFloorY - 24, 56, 4.5);
+  ctx.fillRect(tableX - 22, bunkerFloorY - 20, 4.5, 20);
+  ctx.fillRect(tableX + 18, bunkerFloorY - 20, 4.5, 20);
+
+  // Viền cắt lớp hầm chữ A & Cửa nắp hầm ngụy trang lá rừng trên mặt đất
+  ctx.strokeStyle = 'rgba(52, 211, 153, 0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(innerLeft, surfaceY + 31, innerRight - innerLeft, depth - 31);
+
+  const arrowBob = Math.sin(time * 4.2) * 3;
+  ctx.fillStyle = 'rgba(253, 224, 71, 0.8)';
+  ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('▼ Hầm chữ A [S]', innerLeft + 44, surfaceY - 14 + arrowBob);
 
   ctx.restore();
 }
@@ -2754,7 +3167,7 @@ export function drawModernUniversityGate(ctx, cameraX, width, getGroundY) {
   ctx.fillStyle = '#fef08a';
   ctx.font = '700 11.5px "Be Vietnam Pro", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('ĐẠI HỌC QUỐC GIA', uniX, gy - 161);
+  ctx.fillText('TRƯỜNG ĐẠI HỌC', uniX, gy - 161);
 
   ctx.restore();
 }
@@ -3149,12 +3562,19 @@ export function drawDetailedPlatformSurface(ctx, p, sx1, sx2, py, getGroundY, ac
   ctx.save();
 
   switch (p.style) {
-    case 'thatched_hut_floor': {
-      // Sàn ván gỗ nhà tranh che phía trên căn hầm bí mật đầu Màn 1
-      ctx.fillStyle = '#241b13';
-      ctx.fillRect(sx1, py, pw, 7);
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
-      ctx.lineWidth = 1.5;
+    case 'thatched_hut_floor':
+    case 'jungle_bunker_roof': {
+      // Sàn ván gỗ nhà tranh (Màn 1) / Nền rừng & nắp hầm ngụy trang trên nóc Hầm chữ A (Màn 3)
+      const isJungle = p.style === 'jungle_bunker_roof';
+      ctx.fillStyle = isJungle ? '#0e2430' : '#241b13';
+      // Để hở khe nắp hầm bên trái (sx1 + 36 .. sx1 + 114) cho cầu thang đi xuống trực quan!
+      ctx.fillRect(sx1, py, 36, 7);
+      ctx.fillRect(sx1 + 114, py, Math.max(12, pw - 114), 7);
+      // Cửa sập gỗ nắp hầm có viền vàng ấm gợi ý bấm S đi xuống
+      ctx.fillStyle = '#3f2917';
+      ctx.fillRect(sx1 + 36, py + 1, 78, 4.5);
+      ctx.strokeStyle = isJungle ? 'rgba(52, 211, 153, 0.42)' : 'rgba(251, 191, 36, 0.45)';
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.moveTo(sx1, py + 1);
       ctx.lineTo(sx2, py + 1);
@@ -3162,25 +3582,57 @@ export function drawDetailedPlatformSurface(ctx, p, sx1, sx2, py, getGroundY, ac
       break;
     }
 
+    case 'wood_stair_step':
+    case 'hanoi_wood_stair':
+    case 'hanoi_wood_mezzanine': {
+      // Chiếu nghỉ / Bậc cầu thang ván gỗ trong hầm bí mật, Hầm chữ A & Nhà phố cổ 2 tầng Hà Nội
+      const isMezz = p.style === 'hanoi_wood_mezzanine';
+      ctx.fillStyle = isMezz ? '#3b2115' : '#4a2c1a';
+      fillRoundedRect(ctx, sx1, py, pw, isMezz ? 8 : 6.5, 2.5);
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.46)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sx1 + 2, py + 1);
+      ctx.lineTo(sx2 - 2, py + 1);
+      ctx.stroke();
+      if (isMezz) {
+        // Lan can gỗ gác xép nhà phố cổ
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)';
+        ctx.lineWidth = 1.3;
+        ctx.strokeRect(sx1 + 4, py - 15, pw - 8, 15);
+      }
+      break;
+    }
+
+    case 'pacbo_waterfall_step':
     case 'pacbo_ledge':
     case 'pacbo_cave_mouth':
     case 'stone_ledge': {
-      // Mỏm đá tai mèo Pác Bó nhiều tầng rêu phong / Đá suối Trường Sơn
+      // Bậc đá thác nước Suối Lê-nin / Nền hang Cốc Bó cắt lớp / Đá suối Trường Sơn
       const isCaveTop = p.style === 'pacbo_cave_mouth';
+      const isWaterfallStep = p.style === 'pacbo_waterfall_step';
       ctx.fillStyle = act === 1 ? '#111927' : '#0b1d26';
       ctx.beginPath();
       ctx.moveTo(sx1 - 4, py + 2);
       ctx.lineTo(sx2 + 4, py + 2);
-      ctx.lineTo(sx2 - 8, py + (isCaveTop ? 28 : 22));
-      ctx.lineTo(sx1 + pw * 0.62, py + (isCaveTop ? 36 : 29));
-      ctx.lineTo(sx1 + pw * 0.28, py + 24);
-      ctx.lineTo(sx1 + 8, py + 19);
+      ctx.lineTo(sx2 - 8, py + (isCaveTop ? 26 : 22));
+      ctx.lineTo(sx1 + pw * 0.62, py + (isCaveTop ? 32 : 28));
+      ctx.lineTo(sx1 + pw * 0.28, py + 23);
+      ctx.lineTo(sx1 + 8, py + 18);
       ctx.closePath();
       ctx.fill();
 
-      // Mossy emerald/slate top edge highlight so jumpable rock ledges read clearly
-      ctx.strokeStyle =
-        act === 1 ? 'rgba(110, 231, 183, 0.36)' : 'rgba(167, 243, 208, 0.32)';
+      // Lớp nước ngọc bích tràn qua mặt bậc đá thác nước
+      if (isWaterfallStep) {
+        ctx.fillStyle = 'rgba(94, 234, 212, 0.36)';
+        ctx.fillRect(sx1 + 4, py - 1.5, pw - 8, 3.5);
+      }
+
+      ctx.strokeStyle = isWaterfallStep
+        ? 'rgba(153, 246, 228, 0.58)'
+        : act === 1
+        ? 'rgba(110, 231, 183, 0.38)'
+        : 'rgba(167, 243, 208, 0.32)';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.moveTo(sx1, py + 1);
@@ -3326,6 +3778,7 @@ export function drawFollowerComrade(ctx, sx, footY, act, variantIndex, anim, tim
     attackPose = null,
     attackTimer = 0,
     stealthHidden = false,
+    isCrouching = false,
   } = anim;
 
   const scale = 0.91 + (variantIndex % 3) * 0.025;
@@ -3352,6 +3805,7 @@ export function drawFollowerComrade(ctx, sx, footY, act, variantIndex, anim, tim
         pose: attackPose,
         poseTimer: attackTimer,
         wearingHat: true,
+        isCrouching: Boolean(isCrouching || stealthHidden),
       },
       time + variantIndex * 0.4
     );
@@ -3362,7 +3816,7 @@ export function drawFollowerComrade(ctx, sx, footY, act, variantIndex, anim, tim
   // Màn 1: Nông dân / Tự vệ mặc áo nâu/áo bà ba, đội nón lá hoặc vấn khăn, cầm gậy / búa / cờ đỏ!
   const weaponType = ['staff', 'hammer', 'flag'][variantIndex % 3];
   const bob = onGround && speedRatio > 0.05 ? Math.abs(Math.sin(walkCycle * 2)) * 3.2 : 0;
-  const crouchDrop = stealthHidden ? 12 : 0;
+  const crouchDrop = stealthHidden || isCrouching ? 20 : 0;
 
   ctx.translate(sx, footY);
   ctx.scale(facing * scale, scale);

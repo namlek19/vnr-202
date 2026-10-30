@@ -103,6 +103,7 @@ export class WorldRenderer {
       baseGroundY,
       getGroundY,
       cameraX,
+      cameraY = 0,
       cameraZoom,
       player,
       companionsState = null,
@@ -130,16 +131,17 @@ export class WorldRenderer {
 
     ctx.save();
 
-    if (cameraZoom !== 1 || vfx.shakeX !== 0 || vfx.shakeY !== 0) {
+    if (cameraZoom !== 1 || vfx.shakeX !== 0 || vfx.shakeY !== 0 || cameraY !== 0) {
       const cx = width * 0.5;
       const cy = baseGroundY - 65;
       ctx.translate(cx + vfx.shakeX, cy + vfx.shakeY);
       ctx.scale(cameraZoom, cameraZoom);
       ctx.translate(-cx, -cy);
+      ctx.translate(0, -cameraY);
     }
 
     // 1. Atmospheric Sky + Moon / Dawn Sun (STRICTLY PRESERVED)
-    this.drawSky(ctx, act, width, height, baseGroundY, player.x, palette);
+    this.drawSky(ctx, act, width, height, baseGroundY, player.x, palette, cameraY);
 
     // 2. Far Horizon Parallax (0.16x): Mountain Ridges / Modern Skyline & Multi-Span Cable Bridge
     this.drawFarLayer(ctx, act, width, baseGroundY, cameraX, palette);
@@ -228,7 +230,8 @@ export class WorldRenderer {
       baseGroundY,
       getGroundY,
       cameraX,
-      palette
+      palette,
+      cameraY
     );
 
     // 14. In-World Projectiles, Red Bomb Warning Circles, HP Bars & Floating Head Notices
@@ -250,13 +253,13 @@ export class WorldRenderer {
     }
   }
 
-  drawSky(ctx, act, width, height, baseGroundY, localX, palette) {
-    const grad = ctx.createLinearGradient(0, 0, 0, baseGroundY + 60);
+  drawSky(ctx, act, width, height, baseGroundY, localX, palette, cameraY = 0) {
+    const grad = ctx.createLinearGradient(0, -cameraY - 120, 0, baseGroundY + 80);
     grad.addColorStop(0, palette.skyTop);
     grad.addColorStop(0.56, palette.skyMid);
     grad.addColorStop(1, palette.skyBot);
     ctx.fillStyle = grad;
-    ctx.fillRect(-80, -80, width + 160, height + 160);
+    ctx.fillRect(-120, -cameraY - 260, width + 240, height + cameraY + 460);
 
     // Act 1 Pale Crescent Moon in misty night sky
     if (act === 1) {
@@ -632,10 +635,10 @@ export class WorldRenderer {
 
     // ==================== STAGE LANDMARKS BEHIND PLATFORMS ====================
     if (act === 1) {
-      // Căn hầm bí mật trũng xuống dưới nền nhà tranh đầu Màn 1 (x = 558)
-      const hutCenterSx = 558 - cameraX;
-      if (hutCenterSx > -240 && hutCenterSx < width + 240) {
-        drawSecretCellarAndHut(ctx, hutCenterSx, baseGroundY, baseGroundY + 52, this.time);
+      // Căn hầm bí mật trũng xuống dưới nền nhà tranh đầu Màn 1 (x = 600, hầm x = 450..750, dy = +180)
+      const hutCenterSx = 600 - cameraX;
+      if (hutCenterSx > -260 && hutCenterSx < width + 260) {
+        drawSecretCellarAndHut(ctx, hutCenterSx, baseGroundY, baseGroundY + 180, this.time);
       }
 
       // Kho thóc Nhật xây gạch mái tôn, cửa sắt lớn & 2 Tháp canh gỗ có lính Nhật đứng gác + đèn pha xoay
@@ -1243,6 +1246,7 @@ export class WorldRenderer {
         pose: player.pose,
         poseTimer: player.poseTimer || 0,
         wearingHat: player.wearingHat !== false,
+        isCrouching: Boolean(player.isCrouching),
         alpha: isStealthHidden ? 0.56 : 1,
       },
       this.time
@@ -1257,19 +1261,21 @@ export class WorldRenderer {
     baseGroundY,
     getGroundY,
     cameraX,
-    palette
+    palette,
+    cameraY = 0
   ) {
     ctx.save();
 
     // Continuous Sloped / Sunken Terrain Polygon matching physics 100%
     ctx.fillStyle = palette.ground;
     ctx.beginPath();
-    ctx.moveTo(-60, height + 80);
+    const bottomY = height + cameraY + 300;
+    ctx.moveTo(-60, bottomY);
     for (let sx = -60; sx <= width + 60; sx += 8) {
       const wx = sx + cameraX;
       ctx.lineTo(sx, getGroundY(wx));
     }
-    ctx.lineTo(width + 60, height + 80);
+    ctx.lineTo(width + 60, bottomY);
     ctx.closePath();
     ctx.fill();
 
@@ -1288,13 +1294,14 @@ export class WorldRenderer {
     // Limbo-style Out-of-Focus Foreground Blades along bottom viewport edge (1.2x parallax)
     const fgOffset = cameraX * 1.2;
     ctx.fillStyle = '#020407';
+    const fgBottom = height + cameraY;
     for (let sx = -40; sx <= width + 60; sx += 52) {
       const wx = sx + fgOffset;
       const bladeH = 10 + Math.abs(Math.sin(wx * 0.037)) * 15;
       const sway = Math.sin(this.time * 2.1 + wx * 0.02) * 4;
       ctx.beginPath();
-      ctx.moveTo(sx - 6, height);
-      ctx.quadraticCurveTo(sx + sway, height - bladeH - 8, sx + 6, height);
+      ctx.moveTo(sx - 6, fgBottom);
+      ctx.quadraticCurveTo(sx + sway, fgBottom - bladeH - 8, sx + 6, fgBottom);
       ctx.fill();
     }
 

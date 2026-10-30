@@ -49,21 +49,24 @@ export const ACTS = [
       { minX: 1680, maxX: 2490, name: 'Kho thóc Nhật & Tháp canh tuần tra' },
       { minX: 2490, maxX: 3100, name: 'Quảng trường Ba Đình lịch sử' },
     ],
-    // dy > 0: trũng xuống (hầm bí mật, lòng suối); dy < 0: cao lên (lễ đài)
+    subrooms: [
+      { x: 515, x1: 450, x2: 750, kind: 'underground', label: 'Hầm bí mật' },
+      { x: 1365, x1: 1200, x2: 1550, kind: 'cave', label: 'Hang Pác Bó' },
+    ],
+    combatStarX: 2335,
+    // dy > 0: trũng sâu dưới lòng đất (hầm bí mật cắt lớp +180px, lòng suối); dy < 0: cao lên (lễ đài)
     groundProfile: [
       [0, 0],
-      [350, 0],
-      // Bậc xuống Căn hầm bí mật dưới nền nhà tranh (đọc Cương lĩnh 2/1930 ở x = 560)
-      [405, 24],
-      [455, 52],
-      [660, 52],
-      [710, 24],
-      [760, 0],
+      [448, 0],
+      // Căn hầm bí mật cắt lớp 2D sâu dưới nền nhà tranh (x = 450..750, dy = +180px)
+      [464, 180],
+      [736, 180],
+      [752, 0],
       [910, 0],
-      // Lòng suối dưới chân vách đá vôi Pác Bó
-      [1000, 28],
-      [1540, 28],
-      [1635, 0],
+      // Lòng suối Lê-nin dưới chân thác nước & vách đá vôi Pác Bó
+      [995, 28],
+      [1565, 28],
+      [1645, 0],
       // Sân Kho thóc Nhật phẳng có 3 ụ rơm / bụi tre ẩn nấp
       [2520, 0],
       // Thềm cao Quảng trường Ba Đình
@@ -71,13 +74,15 @@ export const ACTS = [
       [3000, -22],
     ],
     platforms: [
-      // Sàn nhà tranh phía trên Căn hầm bí mật (có thể bấm S tụt xuống hầm hoặc đi bậc thang hai bên)
-      { id: 'p1_thatched_floor', x1: 430, x2: 685, dy: -4, style: 'thatched_hut_floor' },
-      // Các mỏm đá vôi rêu phong cao thấp dẫn lên cửa hang Pác Bó trên cao
-      { id: 'p1_rock1', x1: 950, x2: 1105, dy: -46, style: 'pacbo_ledge' },
-      { id: 'p1_rock2', x1: 1085, x2: 1240, dy: -98, style: 'pacbo_ledge' },
-      { id: 'p1_rock3', x1: 1220, x2: 1465, dy: -148, style: 'pacbo_cave_mouth' },
-      { id: 'p1_rock4', x1: 1440, x2: 1585, dy: -74, style: 'pacbo_ledge' },
+      // Sàn ván gỗ nhà tranh trên mặt đất (bấm S / ▼ mở nắp hầm đi cầu thang gỗ xuống hầm bí mật +180px)
+      { id: 'p1_thatched_floor', x1: 430, x2: 765, dy: 0, style: 'thatched_hut_floor' },
+      { id: 'p1_cellar_step1', x1: 466, x2: 548, dy: 60, style: 'wood_stair_step' },
+      { id: 'p1_cellar_step2', x1: 505, x2: 588, dy: 120, style: 'wood_stair_step' },
+      // 3 Bậc đá thác nước dẫn sâu vào lòng Hang đá vôi Pác Bó cắt lớp 2D (x = 1200..1550)
+      { id: 'p1_rock1', x1: 965, x2: 1088, dy: -46, style: 'pacbo_waterfall_step' },
+      { id: 'p1_rock2', x1: 1072, x2: 1196, dy: -96, style: 'pacbo_waterfall_step' },
+      { id: 'p1_rock3', x1: 1185, x2: 1545, dy: -146, style: 'pacbo_cave_mouth' },
+      { id: 'p1_rock4', x1: 1532, x2: 1622, dy: -72, style: 'pacbo_ledge' },
       // 3 Ụ rơm lớn kết hợp bụi tre đặt cách quãng trước Kho thóc Nhật làm chỗ ẩn nấp đèn pha
       { id: 'p1_hay1', x1: 1920, x2: 2005, dy: -44, style: 'haystack_cover' },
       { id: 'p1_hay2', x1: 2050, x2: 2135, dy: -50, style: 'haystack_cover' },
@@ -109,52 +114,57 @@ export const ACTS = [
     },
     zones: [
       { minX: 0, maxX: 760, name: 'Lớp học Bình dân học vụ' },
-      { minX: 760, maxX: 1540, name: 'Mái ngói & Chiến lũy Phố cổ Hà Nội' },
+      { minX: 760, maxX: 1540, name: 'Nhà phố cổ 2 tầng & Chiến lũy Hà Nội' },
       { minX: 1540, maxX: 2070, name: 'Đèo dốc Tây Bắc' },
       { minX: 2070, maxX: 3100, name: 'Giao thông hào & Cứ điểm Điện Biên Phủ' },
     ],
+    subrooms: [
+      { x: 1200, x1: 1050, x2: 1350, kind: 'interior', label: 'Nhà phố cổ 2 tầng' },
+    ],
+    secondaryCombatX: 1445,
+    combatStarX: 2592,
     groundProfile: [
       [0, 0],
-      [1530, 0],
+      [1545, 0],
       // Đèo dốc Tây Bắc
       [1700, -48],
       [1860, -76],
       [2010, -28],
       [2075, 0],
-      // Hố giao thông hào Điện Biên Phủ số 1 (trũng sâu dưới mặt đất phẳng)
-      [2105, 50],
-      [2205, 50],
-      [2235, 0],
+      // Hố giao thông hào Điện Biên Phủ số 1 (trũng sâu +52px để chiến sĩ khom mình nấp đạn)
+      [2098, 52],
+      [2192, 52],
+      [2214, 0],
       // Ụ đất & Hàng rào dây thép gai số 1 -> Hố giao thông hào số 2
-      [2275, 0],
-      [2305, 52],
-      [2405, 52],
-      [2435, 0],
-      // Ụ đất số 2 -> Hố giao thông hào số 3 sát trước Lô cốt Pháp & Hầm Đờ Cátơri
-      [2470, 0],
-      [2495, 48],
-      [2570, 48],
-      [2600, 0],
+      [2252, 0],
+      [2274, 52],
+      [2368, 52],
+      [2390, 0],
+      // Ụ đất số 2 -> Hố giao thông hào xung kích số 3 -> Khoảng trống đặt bộc phá sát Lô cốt (2532..2600)
+      [2416, 0],
+      [2436, 52],
+      [2512, 52],
+      [2532, 0],
       [3000, 0],
     ],
     platforms: [
-      // Hệ thống Ban công tầng 2 & Mái ngói phố cổ nối tiếp nhau vượt trên chiến lũy lòng đường
-      { id: 'p2_barricade_low', x1: 785, x2: 910, dy: -52, style: 'barricade' },
-      { id: 'p2_hanoi_balcony1', x1: 890, x2: 1065, dy: -102, style: 'hanoi_balcony' },
-      { id: 'p2_tram_top', x1: 1050, x2: 1265, dy: -144, style: 'hanoi_tiled_roof' },
-      { id: 'p2_balcony', x1: 1250, x2: 1420, dy: -100, style: 'hanoi_balcony' },
-      { id: 'p2_barricade_out', x1: 1405, x2: 1510, dy: -48, style: 'barricade' },
+      // Chiến lũy đầu phố & Mặt cắt nội thất Nhà phố cổ 2 tầng Hà Nội (1050..1350: Tầng 1 -> Cầu thang gỗ -> Gác xép -> Ban công Loa phát thanh)
+      { id: 'p2_barricade_low', x1: 830, x2: 935, dy: -46, style: 'barricade' },
+      { id: 'p2_house_stair1', x1: 1072, x2: 1172, dy: -50, style: 'hanoi_wood_stair' },
+      { id: 'p2_house_mezz', x1: 1152, x2: 1278, dy: -98, style: 'hanoi_wood_mezzanine' },
+      { id: 'p2_tram_top', x1: 1235, x2: 1392, dy: -142, style: 'hanoi_balcony' },
+      { id: 'p2_barricade_out', x1: 1385, x2: 1495, dy: -50, style: 'barricade' },
       // Nóc hầm chỉ huy Đờ Cátơri mái vòm thép
       { id: 'p2_bunker_roof', x1: 2615, x2: 2775, dy: -54, style: 'bunker_roof' },
     ],
-    // Chiến lũy toa tàu điện & bao cát chặn lòng đường hướng dẫn nhảy lên tầng 2 mái phố cổ
+    // Chiến lũy chắn ngang cuối nhà cổ hướng người chơi đi vào tầng 1 nhà cổ (1050) leo cầu thang gỗ lên tầng 2!
     obstacles: [
       {
         id: 'obs_hanoi_barricade',
-        x1: 925,
-        x2: 1015,
+        x1: 1352,
+        x2: 1412,
         dy: -54,
-        hint: '[W] Lên ban công & mái phố cổ vượt chiến lũy',
+        hint: '[W] Leo cầu thang gỗ trong nhà cổ lên tầng 2',
       },
     ],
     handoffAtEnd: {
@@ -185,29 +195,36 @@ export const ACTS = [
       gold: '#fbbf24',
     },
     zones: [
-      { minX: 0, maxX: 980, name: 'Đường mòn & Trạm giao liên Trường Sơn' },
+      { minX: 0, maxX: 980, name: 'Đường mòn & Hầm chữ A chỉ huy Trường Sơn' },
       { minX: 980, maxX: 1450, name: 'Cầu treo vượt vực suối Trường Sơn' },
       { minX: 1450, maxX: 2220, name: 'Đồi Pháo cao xạ 37mm & Tọa độ lửa' },
       { minX: 2220, maxX: 3100, name: 'Đại lộ Sài Gòn — Dinh Độc Lập' },
     ],
+    subrooms: [
+      { x: 515, x1: 450, x2: 750, kind: 'underground', label: 'Hầm chữ A Trường Sơn' },
+    ],
+    secondaryCombatX: 1730,
+    combatStarX: 2545,
     groundProfile: [
-      // Đường rừng lên đồi xuống suối tự nhiên -> Trạm giao liên hốc đá (x = 580)
+      // Đường rừng lên đồi -> Lối ngầm xuống Hầm chữ A chỉ huy Trường Sơn dưới rễ cây cổ thụ (x = 450..750, dy = +170px)
       [0, 0],
-      [250, -38],
-      [450, -10],
-      [540, 16],
-      [635, 16],
-      [760, -32],
-      [930, -10],
+      [250, -34],
+      [435, 0],
+      [448, 0],
+      [464, 170],
+      [736, 170],
+      [752, 0],
+      [835, -26],
+      [955, -8],
       [1035, 0],
       // Vực suối sâu bên dưới Cầu treo Trường Sơn
       [1095, 62],
       [1355, 62],
       [1415, 0],
-      // Leo lên Mỏm đồi cao đặt Khẩu đội Pháo cao xạ phòng không 37mm (x = 1730)
+      // Leo lên Mỏm đồi cao đặt 2 Khẩu đội Pháo cao xạ phòng không 37mm (x = 1662 & 1796)
       [1520, -38],
-      [1655, -82],
-      [1800, -82],
+      [1645, -82],
+      [1815, -82],
       [1915, 0],
       // Hố bom tọa độ lửa -> Đổ xuống đại lộ phẳng tiến thẳng vào cổng Dinh Độc Lập
       [1960, 48],
@@ -218,6 +235,10 @@ export const ACTS = [
       [3000, -16],
     ],
     platforms: [
+      // Nền rừng & rễ cây cổ thụ che trên nóc Hầm chữ A (bấm S / ▼ xuống bậc thang gỗ vào hầm +170px)
+      { id: 'p3_bunker_roof', x1: 430, x2: 765, dy: 0, style: 'jungle_bunker_roof' },
+      { id: 'p3_bunker_step1', x1: 466, x2: 548, dy: 56, style: 'wood_stair_step' },
+      { id: 'p3_bunker_step2', x1: 505, x2: 588, dy: 114, style: 'wood_stair_step' },
       // Cầu treo Trường Sơn có dây văng và ván gỗ bắc qua vực suối
       { id: 'p3_bridge', x1: 1040, x2: 1410, dy: -16, style: 'wood_bridge' },
       // Bậc đá dưới lòng suối để nhảy lên bờ nếu người chơi tụt xuống suối
@@ -252,10 +273,12 @@ export const ACTS = [
       gold: '#fde68a',
     },
     zones: [
-      { minX: 0, maxX: 980, name: 'Đại lộ Bình minh — Cổng trường Đại học' },
+      { minX: 0, maxX: 980, name: 'Đại lộ Bình minh — Cổng Trường Đại học' },
       { minX: 980, maxX: 1980, name: 'Đô thị Hiện đại — Cầu dây văng & Tuyến Metro' },
       { minX: 1980, maxX: 3100, name: 'Đồi Tùng Bách & Đài tưởng niệm Tổ quốc ghi công' },
     ],
+    subrooms: [],
+    combatStarX: 2560,
     groundProfile: [
       [0, 0],
       [1980, 0],
@@ -323,8 +346,10 @@ export const INTERACTABLES = [
   {
     id: 'act1_item1',
     act: 1,
-    x: 560,
-    platformId: null,
+    x: 635,
+    platformId: null, // Dưới đáy Hầm bí mật cắt lớp 2D (dy = +180px)
+    checklistLabel: 'Cương lĩnh đầu tiên (2/1930)',
+    locationHint: 'Hầm bí mật ▼',
     iconType: 'manifesto_table',
     tag: 'Mốc 3/2/1930',
     title: 'Bản Cương lĩnh trên bàn gỗ (Mốc 3/2/1930)',
@@ -334,8 +359,10 @@ export const INTERACTABLES = [
   {
     id: 'act1_item2',
     act: 1,
-    x: 1330,
-    platformId: 'p1_rock3', // Trên mỏm đá cao vách núi Cao Bằng (nhảy W lên đọc)
+    x: 1435,
+    platformId: 'p1_rock3', // Sâu trong lòng Hang Cốc Bó — Pác Bó cắt lớp 2D (nhảy W lên 3 bậc thác nước)
+    checklistLabel: 'Mặt trận Việt Minh (5/1941)',
+    locationHint: 'Hang Pác Bó ▲',
     iconType: 'viet_minh_flag',
     tag: 'Mốc 5/1941',
     title: 'Chủ trương thành lập Mặt trận Việt Minh (Mốc 5/1941)',
@@ -347,6 +374,8 @@ export const INTERACTABLES = [
     act: 1,
     x: 1810,
     platformId: null,
+    checklistLabel: 'Phá kho thóc Nhật (3/1945)',
+    locationHint: 'Sân kho thóc',
     iconType: 'ox_cart_granary',
     tag: 'Đầu năm 1945',
     title: 'Chiếc xe bò bên kho thóc Nhật (Đầu năm 1945)',
@@ -360,6 +389,8 @@ export const INTERACTABLES = [
     act: 2,
     x: 500,
     platformId: null,
+    checklistLabel: 'Kháng chiến kiến quốc (1945–1946)',
+    locationHint: 'Lớp Bình dân',
     iconType: 'rice_jar_blackboard',
     tag: '1945 – 1946',
     title: 'Hũ gạo tiết kiệm & Bảng đen Bình dân học vụ (1945 – 1946)',
@@ -369,8 +400,10 @@ export const INTERACTABLES = [
   {
     id: 'act2_item2',
     act: 2,
-    x: 1190,
-    platformId: 'p2_tram_top', // Đặt trên đỉnh chiến lũy / toa tàu điện Hà Nội
+    x: 1328,
+    platformId: 'p2_tram_top', // Đặt trên ban công tầng 2 Nhà phố cổ Hà Nội cắt lớp 2D
+    checklistLabel: 'Lời kêu gọi kháng chiến (19/12/1946)',
+    locationHint: 'Tầng 2 Nhà cổ ▲',
     iconType: 'barricade_speaker',
     tag: '19/12/1946',
     title: 'Chiếc loa truyền thanh trên chiến lũy Hà Nội (19/12/1946)',
@@ -382,6 +415,8 @@ export const INTERACTABLES = [
     act: 2,
     x: 1880,
     platformId: null, // Trên đỉnh đèo Tây Bắc
+    checklistLabel: 'Chiến dịch Điện Biên Phủ (1954)',
+    locationHint: 'Đèo Tây Bắc',
     iconType: 'pack_bike_map',
     tag: '1953 – 1954',
     title: 'Chiếc xe đạp thồ & Sơ đồ tác chiến Điện Biên Phủ (1953 – 1954)',
@@ -393,8 +428,10 @@ export const INTERACTABLES = [
   {
     id: 'act3_item1',
     act: 3,
-    x: 580,
-    platformId: null,
+    x: 642,
+    platformId: null, // Dưới Hầm chữ A chỉ huy Trường Sơn cắt lớp 2D (dy = +170px)
+    checklistLabel: 'Nghị quyết Đại hội III (9/1960)',
+    locationHint: 'Hầm chữ A ▼',
     iconType: 'campfire_letter',
     tag: 'Mốc Đại hội III – 9/1960',
     title: 'Bức thư nhà bên bếp lửa Trường Sơn (Mốc Đại hội III – 9/1960)',
@@ -406,6 +443,8 @@ export const INTERACTABLES = [
     act: 3,
     x: 1520,
     platformId: null,
+    checklistLabel: 'Chân lý Độc lập Tự do (1965–1973)',
+    locationHint: 'Chân đồi Cao xạ',
     iconType: 'radio_milestone',
     tag: '1965 – 1973',
     title: 'Chiếc radio bán dẫn & Cột mốc Trường Sơn (1965 – 1973)',
@@ -419,6 +458,8 @@ export const INTERACTABLES = [
     act: 4,
     x: 700,
     platformId: null,
+    checklistLabel: 'Thống nhất & Đổi mới (12/1986)',
+    locationHint: 'Sân Đại học',
     iconType: 'history_board',
     tag: '1976 & Đại hội VI – 12/1986',
     title: 'Bảng tin Lịch sử: Thống nhất Nhà nước & Đường lối Đổi mới (12/1986)',
@@ -430,6 +471,8 @@ export const INTERACTABLES = [
     act: 4,
     x: 1520,
     platformId: null,
+    checklistLabel: 'Công nghiệp hóa & Hội nhập',
+    locationHint: 'Đại lộ Đô thị',
     iconType: 'modern_emblem',
     tag: '1986 – Nay',
     title: 'Biểu tượng Công nghiệp hóa, Hiện đại hóa & Hội nhập (1986 – Nay)',

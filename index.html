@@ -87,6 +87,48 @@
         </div>
       </header>
 
+      <!-- HUD Bảng Mục tiêu Văn kiện (Top-Left) -->
+      <aside id="objective-checklist" class="objective-checklist" aria-label="Mục tiêu lịch sử">
+        <div class="objective-header">
+          <span class="objective-icon">📜</span>
+          <span class="objective-title">MỤC TIÊU VĂN KIỆN</span>
+          <span id="objective-counter" class="objective-counter">0/3</span>
+        </div>
+        <ul id="objective-list" class="objective-list"></ul>
+      </aside>
+
+      <!-- HUD Mini-map Trực quan Chiều dài Màn (Top-Right) -->
+      <aside id="minimap-hud" class="minimap-hud" aria-label="Bản đồ màn chơi">
+        <div class="minimap-frame">
+          <canvas id="minimap-canvas" width="260" height="32"></canvas>
+        </div>
+        <div class="minimap-labels">
+          <span id="minimap-act-label">MÀN 1</span>
+          <span class="minimap-legend">
+            <span class="legend-dot legend-player">●</span> Vị trí
+            <span class="legend-dot legend-subroom">▼</span> Hầm/Hang
+            <span class="legend-dot legend-doc">★</span> Cột mốc
+          </span>
+        </div>
+      </aside>
+
+      <!-- HUD Sóng âm Đài Tiếng nói Việt Nam (19/12/1946) -->
+      <aside id="vov-broadcast-hud" class="vov-broadcast-hud hidden" aria-label="Phát thanh lịch sử">
+        <div class="vov-header">
+          <span class="vov-pulse-dot">🔴</span>
+          <span class="vov-title">ĐÀI TIẾNG NÓI VIỆT NAM (19/12/1946) — Lời kêu gọi toàn quốc kháng chiến</span>
+          <button type="button" id="vov-toggle-btn" class="vov-toggle-btn" aria-label="Tạm dừng hoặc tiếp tục">⏸ Tạm dừng</button>
+        </div>
+        <div id="vov-bars" class="vov-bars">
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+          <span class="vov-bar"></span><span class="vov-bar"></span><span class="vov-bar"></span>
+        </div>
+      </aside>
+
       <!-- Dòng phụ đề tinh tế khi Chuyển giao thế hệ (Cuối Màn 2 & Cuối Màn 3) hoặc nhắc nhiệm vụ -->
       <div id="cinematic-caption" class="cinematic-caption hidden"></div>
 

@@ -1253,3 +1253,289 @@ kbd {
     padding: 0 9px;
   }
 }
+
+/* ==========================================================================
+   BẢNG MỤC TIÊU VĂN KIỆN (TOP-LEFT HUD), MINI-MAP (TOP-RIGHT) & SÓNG ÂM VOV
+   ========================================================================== */
+
+.objective-checklist {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  z-index: 25;
+  background: rgba(8, 13, 22, 0.76);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 9px;
+  padding: 8px 12px;
+  max-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.objective-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fde68a;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.15);
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+}
+
+.objective-icon {
+  font-size: 0.85rem;
+}
+
+.objective-title {
+  flex: 1;
+}
+
+.objective-counter {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.objective-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.objective-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  transition: color 0.2s ease;
+}
+
+.objective-item.completed {
+  color: #86efac;
+}
+
+.objective-status {
+  font-weight: 700;
+  min-width: 16px;
+  text-align: center;
+  color: #fbbf24;
+}
+
+.objective-item.completed .objective-status {
+  color: #4ade80;
+}
+
+.objective-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.objective-hint {
+  font-size: 0.65rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.objective-item.completed .objective-hint {
+  display: none;
+}
+
+/* Mini-map HUD (Top-Right) */
+.minimap-hud {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  z-index: 25;
+  background: rgba(8, 13, 22, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  border-radius: 9px;
+  padding: 6px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.minimap-frame {
+  width: 260px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#minimap-canvas {
+  width: 260px;
+  height: 32px;
+  display: block;
+}
+
+.minimap-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.64rem;
+  color: #94a3b8;
+}
+
+#minimap-act-label {
+  font-weight: 700;
+  color: #fde68a;
+  letter-spacing: 0.06em;
+}
+
+.minimap-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.62rem;
+}
+
+.legend-dot.legend-player {
+  color: #38bdf8;
+}
+
+.legend-dot.legend-subroom {
+  color: #fb923c;
+  font-size: 0.65rem;
+}
+
+.legend-dot.legend-doc {
+  color: #ef4444;
+}
+
+/* Sóng âm Đài Tiếng nói Việt Nam (VOV Broadcast HUD) */
+.vov-broadcast-hud {
+  position: absolute;
+  top: calc(76px + env(safe-area-inset-top, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  z-index: 26;
+  background: rgba(18, 10, 10, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 9px;
+  padding: 8px 12px;
+  box-shadow: 0 10px 28px rgba(220, 38, 38, 0.25);
+  pointer-events: auto;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.vov-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fecaca;
+  margin-bottom: 7px;
+}
+
+.vov-pulse-dot {
+  font-size: 0.72rem;
+  animation: pulse-red-dot 1.4s infinite;
+}
+
+@keyframes pulse-red-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.vov-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.04em;
+}
+
+.vov-toggle-btn {
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fff;
+  font-size: 0.65rem;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.vov-toggle-btn:hover {
+  background: rgba(239, 68, 68, 0.42);
+  border-color: #fca5a5;
+}
+
+.vov-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3px;
+  height: 20px;
+  padding: 2px 0;
+}
+
+.vov-bar {
+  flex: 1;
+  background: linear-gradient(to top, #ef4444, #fde047);
+  border-radius: 2px;
+  min-height: 3px;
+  height: 15%;
+  transition: height 0.08s ease;
+}
+
+/* Mobile Landscape & Compact Height Adjustments */
+@media screen and (max-height: 480px) {
+  .objective-checklist {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    padding: 5px 8px;
+    max-width: 220px;
+    transform: scale(0.88);
+    transform-origin: top left;
+  }
+
+  .minimap-hud {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    padding: 4px 8px;
+    transform: scale(0.88);
+    transform-origin: top right;
+  }
+
+  .vov-broadcast-hud {
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    padding: 6px 10px;
+    transform: scale(0.85);
+    transform-origin: top right;
+  }
+}

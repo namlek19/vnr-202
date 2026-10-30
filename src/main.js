@@ -70,6 +70,23 @@ const finaleLessonTitle = document.getElementById('finale-lesson-title');
 const finaleLessonText = document.getElementById('finale-lesson-text');
 const btnReplay = document.getElementById('btn-replay');
 
+// Objective Checklist HUD
+const objectiveChecklist = document.getElementById('objective-checklist');
+const objectiveCounter = document.getElementById('objective-counter');
+const objectiveList = document.getElementById('objective-list');
+
+// Mini-map HUD
+const minimapHud = document.getElementById('minimap-hud');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas ? minimapCanvas.getContext('2d') : null;
+const minimapActLabel = document.getElementById('minimap-act-label');
+
+// VOV Broadcast HUD (Lời kêu gọi toàn quốc kháng chiến 19/12/1946)
+const vovHud = document.getElementById('vov-broadcast-hud');
+const vovToggleBtn = document.getElementById('vov-toggle-btn');
+const vovBars = Array.from(document.querySelectorAll('.vov-bar'));
+const vovBarHeights = new Float32Array(18);
+
 // Static text bindings from storyData.js
 incensePrompt.textContent = FINALE_EVENT.promptText;
 finaleQuoteText.textContent = FINALE_EVENT.quoteText;
@@ -130,9 +147,11 @@ const player = {
   poseHoldDuration: 0,
   costumeOverride: null,
   wearingHat: true,
+  isCrouching: false,
 };
 
 let cameraX = 0;
+let cameraY = 0;
 let cameraZoom = 1.0;
 let targetCameraZoom = 1.0;
 
@@ -380,7 +399,7 @@ function screenToWorld(clientX, clientY) {
   const unzoomY = (ly - cy) / cameraZoom + cy;
   return {
     worldX: unzoomX + cameraX,
-    worldY: unzoomY,
+    worldY: unzoomY + cameraY,
   };
 }
 
@@ -503,6 +522,152 @@ function hideCinematicCaption() {
   cinematicCaption.classList.add('hidden');
 }
 
+// ==================== HUD: OBJECTIVE CHECKLIST, MINI-MAP & VOV BROADCAST ====================
+function updateObjectiveChecklist() {
+  if (!objectiveCounter || !objectiveList) return;
+  const items = interactablesState.filter((it) => it.act === currentAct);
+  const visitedCount = items.filter((it) => it.visited).length;
+  objectiveCounter.textContent = `${visitedCount}/${items.length}`;
+  objectiveList.innerHTML = '';
+
+  for (const it of items) {
+    const li = document.createElement('li');
+    li.className = `objective-item ${it.visited ? 'completed' : 'pending'}`;
+    const statusText = it.visited ? '[✓]' : '[ ]';
+    const nameText = it.checklistLabel || it.title;
+    const hintHtml =
+      !it.visited && it.locationHint
+        ? `<span class="objective-hint">${it.locationHint}</span>`
+        : '';
+    li.innerHTML = `
+      <span class="objective-status">${statusText}</span>
+      <span class="objective-name">${nameText}</span>
+      ${hintHtml}
+    `;
+    objectiveList.appendChild(li);
+  }
+}
+
+function renderMinimap() {
+  if (!minimapCtx) return;
+  const w = 260;
+  const h = 32;
+  const actCfg = ACTS.find((a) => a.id === currentAct) || ACTS[0];
+  const scale = w / WORLD_CONFIG.actWidth;
+
+  minimapCtx.clearRect(0, 0, w, h);
+
+  // Background track
+  minimapCtx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+  minimapCtx.fillRect(0, 0, w, h);
+
+  // Ground baseline
+  const groundY = 22;
+  minimapCtx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+  minimapCtx.lineWidth = 1.5;
+  minimapCtx.beginPath();
+  minimapCtx.moveTo(0, groundY);
+  minimapCtx.lineTo(w, groundY);
+  minimapCtx.stroke();
+
+  // Subrooms (bunker / cave / cellar)
+  if (actCfg.subrooms) {
+    minimapCtx.fillStyle = 'rgba(251, 146, 60, 0.45)';
+    for (const sub of actCfg.subrooms) {
+      const sx1 = sub.x1 * scale;
+      const sx2 = sub.x2 * scale;
+      minimapCtx.fillRect(sx1, groundY, Math.max(3, sx2 - sx1), 7);
+      // Small inverted triangle
+      minimapCtx.fillStyle = '#fb923c';
+      const mid = (sx1 + sx2) * 0.5;
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(mid - 3, groundY - 2);
+      minimapCtx.lineTo(mid + 3, groundY - 2);
+      minimapCtx.lineTo(mid, groundY + 3);
+      minimapCtx.fill();
+    }
+  }
+
+  // Combat Star / Finale objective zone
+  const combatX = (actCfg.combatStarX || 2500) * scale;
+  minimapCtx.fillStyle = '#ef4444';
+  minimapCtx.font = 'bold 9px sans-serif';
+  minimapCtx.textAlign = 'center';
+  minimapCtx.fillText('★', combatX, groundY - 5);
+
+  // Interactables (Historical Documents)
+  for (const it of interactablesState) {
+    if (it.act !== currentAct) continue;
+    const ix = it.x * scale;
+    if (it.visited) {
+      minimapCtx.fillStyle = '#4ade80';
+      minimapCtx.font = 'bold 8px sans-serif';
+      minimapCtx.textAlign = 'center';
+      minimapCtx.fillText('✓', ix, groundY - 4);
+    } else {
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.008 + it.x);
+      minimapCtx.fillStyle = `rgba(251, 191, 36, ${0.4 + 0.6 * pulse})`;
+      minimapCtx.beginPath();
+      minimapCtx.arc(ix, groundY - 6, 3, 0, Math.PI * 2);
+      minimapCtx.fill();
+    }
+  }
+
+  // Camera Viewport Box
+  const camStart = Math.max(0, cameraX * scale);
+  const camWidth = Math.min(w - camStart, viewportWidth * scale);
+  minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+  minimapCtx.lineWidth = 1;
+  minimapCtx.fillRect(camStart, 2, camWidth, h - 4);
+  minimapCtx.strokeRect(camStart, 2, camWidth, h - 4);
+
+  // Player Marker
+  const px = Math.max(4, Math.min(w - 4, player.x * scale));
+  minimapCtx.fillStyle = '#38bdf8';
+  minimapCtx.beginPath();
+  minimapCtx.arc(px, groundY - 6, 3.5, 0, Math.PI * 2);
+  minimapCtx.fill();
+  minimapCtx.strokeStyle = '#ffffff';
+  minimapCtx.lineWidth = 1;
+  minimapCtx.stroke();
+
+  // Label
+  if (minimapActLabel) {
+    minimapActLabel.textContent = `MÀN ${currentAct}`;
+  }
+}
+
+// VOV Broadcast controller
+if (vovToggleBtn) {
+  vovToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isPaused = sound.toggleBroadcastPause();
+    vovToggleBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+  });
+}
+
+function updateVovBroadcastHud() {
+  const bState = sound.getBroadcastState();
+  if (bState.active && currentAct === 2) {
+    if (vovHud && vovHud.classList.contains('hidden')) {
+      vovHud.classList.remove('hidden');
+    }
+    if (vovToggleBtn) {
+      vovToggleBtn.textContent = bState.paused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+    }
+    sound.fillBroadcastBars(vovBarHeights, performance.now() / 1000);
+    for (let i = 0; i < vovBars.length; i++) {
+      const h = Math.round(vovBarHeights[i] * 22);
+      vovBars[i].style.height = `${Math.max(3, h)}px`;
+    }
+  } else {
+    if (vovHud && !vovHud.classList.contains('hidden')) {
+      vovHud.classList.add('hidden');
+    }
+  }
+}
+
 // ==================== STORY MODAL (TYPEWRITER & FOLLOWER RECRUITMENT) ====================
 function openInteractableModal(item) {
   const firstVisit = !item.visited;
@@ -518,11 +683,19 @@ function openInteractableModal(item) {
     );
   }
 
+  // Historical Audio Broadcast "Lời kêu gọi toàn quốc kháng chiến" for Act 2 Item 2!
+  if (item.id === 'act2_item2') {
+    sound.playLoiKeuGoiBroadcast();
+    combatSystem.triggerHanoiBroadcastRally(getGroundY);
+  }
+
   openStoryModal({
     tag: `${ACTS[item.act - 1].period} • ${item.tag}`,
     title: item.title,
     content: item.content,
   });
+
+  updateObjectiveChecklist();
 }
 
 function openStoryModal({ tag, title, content, note = null }) {
@@ -643,6 +816,11 @@ function beginActFromLeft(actId) {
   );
 
   cameraX = 0;
+  cameraY = 0;
+  if (actId !== 2) {
+    sound.stopBroadcast();
+  }
+  updateObjectiveChecklist();
 
   transitionState.active = true;
   transitionState.subPhase = 'ENTER_LEFT';
@@ -677,6 +855,11 @@ function beginActFromRight(actId) {
   );
 
   cameraX = Math.max(0, WORLD_CONFIG.actWidth - viewportWidth);
+  cameraY = 0;
+  if (actId !== 2) {
+    sound.stopBroadcast();
+  }
+  updateObjectiveChecklist();
 
   transitionState.active = true;
   transitionState.subPhase = 'ENTER_FROM_RIGHT';
@@ -1501,6 +1684,19 @@ function updatePlatformerPhysics(rawDt) {
     }
   }
 
+  // Trench crouching & Tactical sneak posture
+  const crouchingInput =
+    keysDown.has('KeyS') ||
+    keysDown.has('ArrowDown') ||
+    (joystickState.active && joystickState.normY > 0.45);
+  const autoTrenchCrouch =
+    currentAct === 2 &&
+    player.x >= 2095 &&
+    player.x <= 2518 &&
+    player.dy >= 22;
+
+  player.isCrouching = Boolean(player.onGround && (crouchingInput || autoTrenchCrouch));
+
   // Execute Jump if buffered & within coyote ground grace
   if (player.jumpBufferTimer > 0 && player.coyoteTimer > 0 && !holdingIncenseNow) {
     player.vy = JUMP_VELOCITY;
@@ -1512,7 +1708,10 @@ function updatePlatformerPhysics(rawDt) {
   }
 
   const inputDir = (moveRight ? 1 : 0) - (moveLeft ? 1 : 0);
-  const effectiveMaxSpeed = player.maxSpeed * analogScale;
+  let effectiveMaxSpeed = player.maxSpeed * analogScale;
+  if (player.isCrouching) {
+    effectiveMaxSpeed *= 0.55;
+  }
 
   if (inputDir !== 0 && !holdingIncenseNow) {
     player.facing = inputDir;
@@ -1529,6 +1728,27 @@ function updatePlatformerPhysics(rawDt) {
   const prevX = player.x;
   const prevDy = player.dy;
   player.x += player.vx * rawDt;
+
+  // Solid black earth & karst sub-room enclosure clamping
+  // When deep underground (dy > 65), player cannot walk through solid rock/earth walls
+  // Must use stairs to walk back up!
+  if (currentAct === 1 && player.dy > 65) {
+    if (player.x < 466) {
+      player.x = 466;
+      player.vx = 0;
+    } else if (player.x > 734) {
+      player.x = 734;
+      player.vx = 0;
+    }
+  } else if (currentAct === 3 && player.dy > 65) {
+    if (player.x < 466) {
+      player.x = 466;
+      player.vx = 0;
+    } else if (player.x > 734) {
+      player.x = 734;
+      player.vx = 0;
+    }
+  }
 
   // Solid low obstacles check
   nearbyObstacleHint = null;
@@ -1554,11 +1774,37 @@ function updatePlatformerPhysics(rawDt) {
       if (!plat || player.x < plat.x1 - 11 || player.x > plat.x2 + 11) {
         player.onGround = false;
         player.currentPlatformId = null;
+        // Check if stepping directly onto an adjacent stair / ledge platform
+        for (const nextPlat of actCfg.platforms) {
+          if (player.x >= nextPlat.x1 - 8 && player.x <= nextPlat.x2 + 8) {
+            if (Math.abs(nextPlat.dy - prevDy) <= 32) {
+              player.dy = nextPlat.dy;
+              player.currentPlatformId = nextPlat.id;
+              player.onGround = true;
+              break;
+            }
+          }
+        }
       } else {
         player.dy = plat.dy;
       }
     } else {
-      player.dy = sampleGroundOffset(currentAct, player.x);
+      const floorDy = sampleGroundOffset(currentAct, player.x);
+      // Check if stepping onto an adjacent platform (like stair entry)
+      let steppedOntoPlatform = false;
+      for (const plat of actCfg.platforms) {
+        if (player.x >= plat.x1 - 8 && player.x <= plat.x2 + 8) {
+          if (Math.abs(plat.dy - prevDy) <= 24) {
+            player.dy = plat.dy;
+            player.currentPlatformId = plat.id;
+            steppedOntoPlatform = true;
+            break;
+          }
+        }
+      }
+      if (!steppedOntoPlatform) {
+        player.dy = floorDy;
+      }
     }
   }
 
@@ -1913,6 +2159,10 @@ function gameLoop(now) {
   cameraX += (desiredCamX - cameraX) * Math.min(1, rawDt * 6.5);
   cameraZoom += (targetCameraZoom - cameraZoom) * Math.min(1, rawDt * 5.5);
 
+  // Camera vertical tracking for underground subrooms (Act 1 cellar dy = +180, Act 3 bunker dy = +170)
+  const desiredCamY = player.dy > 20 ? (player.dy - 15) * 0.94 : 0;
+  cameraY += (desiredCamY - cameraY) * Math.min(1, rawDt * 5.2);
+
   renderer.render(
     ctx,
     {
@@ -1922,6 +2172,7 @@ function gameLoop(now) {
       baseGroundY,
       getGroundY,
       cameraX,
+      cameraY,
       cameraZoom,
       player,
       companionsState,
@@ -1940,6 +2191,12 @@ function gameLoop(now) {
     },
     vfx
   );
+
+  // Render Horizontal Mini-map & VOV Broadcast Waveform
+  if (gameStarted && !isPortraitPaused) {
+    renderMinimap();
+    updateVovBroadcastHud();
+  }
 
   requestAnimationFrame(gameLoop);
 }

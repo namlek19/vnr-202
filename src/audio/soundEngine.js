@@ -1,10 +1,25 @@
 /* global __BGM_AVAILABLE__ */
 
 /**
- * Hệ thống Âm thanh Hybrid (Web Audio API Synthesizer + Optional MP3 BGM)
- * - Tự sinh toàn bộ SFX & Nhạc nền Ambient 4 Màn bằng Web Audio API.
+ * Hệ thống Âm thanh Hybrid (Web Audio API Synthesizer + Historical Broadcast MP3 + Optional MP3 BGM)
+ * - Tự sinh toàn bộ SFX, Nhạc nền Ambient 4 Màn & Nhạc Chiến đấu 135 BPM bằng Web Audio API.
+ * - Tích hợp bản thu lịch sử "Lời kêu gọi toàn quốc kháng chiến" (19/12/1946) với bộ phân tích sóng âm thực.
  * - Tự động kiểm tra public/audio/bgm_act1..4.mp3 mà KHÔNG gây lỗi 404 trên Console.
  */
+
+const LOI_KEU_GOI_MP3_URL = new URL(
+  './loi_keu_goi_toan_quoc_khang_chien.mp3',
+  import.meta.url
+).href;
+
+const COMBAT_BASS_PATTERNS = {
+  // Màn 1: D minor urgent uprising bass (D2 - D2 - F2 - G2 - A2 - Bb2 - A2 - G2)
+  1: [73.42, 73.42, 87.31, 98.0, 110.0, 116.54, 110.0, 98.0],
+  // Màn 2: C minor heroic resistance bass (C2 - C2 - Eb2 - F2 - G2 - Ab2 - G2 - F2)
+  2: [65.41, 65.41, 77.78, 87.31, 98.0, 103.83, 98.0, 87.31],
+  // Màn 3: E minor Trường Sơn & Saigon offensive bass (E2 - E2 - G2 - A2 - B2 - C3 - B2 - A2)
+  3: [82.41, 82.41, 98.0, 110.0, 123.47, 130.81, 123.47, 110.0],
+};
 
 const ACT_CHORDS = {
   // Màn 1: Đêm đen & Ngọn lửa (D minor melancholic & resolute)
@@ -91,6 +106,18 @@ export class SoundEngine {
     this.chordIndex = 0;
     this.ambientTimer = null;
 
+    // 135 BPM Combat Drum & Bass synth scheduler
+    this.combatMusicActive = false;
+    this.combatStepIndex = 0;
+    this.combatTimer = null;
+
+    // Historical Broadcast ("Lời kêu gọi toàn quốc kháng chiến" 19/12/1946)
+    this.broadcastAudio = null;
+    this.broadcastAnalyser = null;
+    this.broadcastFreqData = null;
+    this.broadcastWebAudioLinked = false;
+    this.broadcastActive = false;
+
     // Incense hold drone state
     this.incenseOscs = null;
     this.incenseGain = null;
@@ -98,6 +125,7 @@ export class SoundEngine {
     // Throttles
     this.lastTypewriterAt = 0;
     this.lastSirenAt = 0;
+    this.lastBombWhistleAt = 0;
   }
 
   async init() {
@@ -264,15 +292,356 @@ export class SoundEngine {
     Object.values(this.mp3Players).forEach((audio) => {
       if (audio) audio.muted = this.muted;
     });
+    if (this.broadcastAudio && !this.broadcastWebAudioLinked) {
+      this.broadcastAudio.muted = this.muted;
+    }
     return this.muted;
+  }
+
+  _syncBgmDucking() {
+    if (!this.initialized || !this.bgmBus || !this.ctx) return;
+    const isPlayingBroadcast =
+      this.broadcastActive && this.broadcastAudio && !this.broadcastAudio.paused;
+    const targetBgmGain = isPlayingBroadcast ? 0.038 : 0.42;
+    const now = this.ctx.currentTime;
+    this.bgmBus.gain.cancelScheduledValues(now);
+    this.bgmBus.gain.setTargetAtTime(targetBgmGain, now, 0.16);
+
+    if (this.activeMp3Act && this.mp3Players[this.activeMp3Act]) {
+      const mp3 = this.mp3Players[this.activeMp3Act];
+      if (!mp3.paused) {
+        mp3.volume = isPlayingBroadcast ? 0.05 : 0.48;
+      }
+    }
+  }
+
+  /**
+   * Phát bản thu lịch sử "Lời kêu gọi toàn quốc kháng chiến" (19/12/1946)
+   * Tự động hạ nhỏ BGM xuống mức tối thiểu và phân tích sóng âm thực qua AnalyserNode.
+   */
+  async playLoiKeuGoiBroadcast() {
+    await this.init();
+
+    if (!this.broadcastAudio) {
+      const audio = new Audio(LOI_KEU_GOI_MP3_URL);
+      audio.preload = 'auto';
+      audio.loop = false;
+      this.broadcastAudio = audio;
+
+      audio.addEventListener('ended', () => {
+        this.broadcastActive = false;
+        this._syncBgmDucking();
+      });
+
+      // Kết nối vào Web Audio AnalyserNode để vẽ sóng âm Đài Tiếng nói Việt Nam theo giọng đọc thực
+      if (this.ctx && this.masterGain) {
+        try {
+          const mediaSource = this.ctx.createMediaElementSource(audio);
+          const analyser = this.ctx.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.78;
+
+          const voiceGain = this.ctx.createGain();
+          voiceGain.gain.value = 1.05;
+
+          mediaSource.connect(analyser);
+          analyser.connect(voiceGain);
+          voiceGain.connect(this.masterGain);
+
+          this.broadcastAnalyser = analyser;
+          this.broadcastFreqData = new Uint8Array(analyser.frequencyBinCount);
+          this.broadcastWebAudioLinked = true;
+        } catch {
+          this.broadcastWebAudioLinked = false;
+          audio.muted = this.muted;
+          audio.volume = 0.95;
+        }
+      }
+    }
+
+    try {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      if (!this.broadcastWebAudioLinked) {
+        this.broadcastAudio.muted = this.muted;
+      }
+      // Nếu bản thu đã chạy hết hoặc chưa phát -> phát từ đầu; nếu đang phát dở -> giữ mạch phát tự nhiên
+      if (this.broadcastAudio.ended || !this.broadcastActive) {
+        this.broadcastAudio.currentTime = 0;
+      }
+      this.broadcastActive = true;
+      await this.broadcastAudio.play();
+      this._syncBgmDucking();
+    } catch {
+      // Tránh crash nếu trình duyệt chặn autoplay tạm thời
+    }
+  }
+
+  toggleBroadcastPause() {
+    if (!this.broadcastAudio || !this.broadcastActive) return false;
+    if (this.broadcastAudio.paused) {
+      this.broadcastAudio.play().catch(() => {});
+      this._syncBgmDucking();
+      return false; // not paused (playing)
+    } else {
+      this.broadcastAudio.pause();
+      this._syncBgmDucking();
+      return true; // paused
+    }
+  }
+
+  stopBroadcast() {
+    if (!this.broadcastAudio) {
+      this.broadcastActive = false;
+      return;
+    }
+    this.broadcastActive = false;
+    try {
+      this.broadcastAudio.pause();
+      this.broadcastAudio.currentTime = 0;
+    } catch {
+      // Ignore
+    }
+    this._syncBgmDucking();
+  }
+
+  getBroadcastState() {
+    if (!this.broadcastActive || !this.broadcastAudio) {
+      return {
+        active: false,
+        paused: true,
+        currentTime: 0,
+        duration: 0,
+        progress: 0,
+      };
+    }
+    const dur = Number.isFinite(this.broadcastAudio.duration)
+      ? this.broadcastAudio.duration
+      : 0;
+    const cur = this.broadcastAudio.currentTime || 0;
+    return {
+      active: true,
+      paused: this.broadcastAudio.paused,
+      currentTime: cur,
+      duration: dur,
+      progress: dur > 0 ? Math.min(1, cur / dur) : 0,
+    };
+  }
+
+  /**
+   * Trả về biên độ sóng âm 0..1 cho thanh Audio Visualizer Đài Tiếng nói Việt Nam
+   */
+  fillBroadcastBars(targetArray, clockSec = 0) {
+    const count = targetArray.length;
+    if (!this.broadcastActive || !this.broadcastAudio || this.broadcastAudio.paused) {
+      for (let i = 0; i < count; i++) {
+        targetArray[i] = 0.12;
+      }
+      return;
+    }
+
+    if (this.broadcastAnalyser && this.broadcastFreqData) {
+      this.broadcastAnalyser.getByteFrequencyData(this.broadcastFreqData);
+      const binCount = this.broadcastFreqData.length;
+      let energySum = 0;
+      for (let i = 0; i < count; i++) {
+        const binIdx = Math.min(
+          binCount - 1,
+          Math.floor((i / count) * (binCount * 0.72)) + 1
+        );
+        const norm = this.broadcastFreqData[binIdx] / 255;
+        energySum += norm;
+        targetArray[i] = Math.max(0.14, Math.min(1, norm * 1.25));
+      }
+      if (energySum > 0.05) return;
+    }
+
+    // Fallback biểu diễn sóng giọng đọc tự nhiên nếu trình duyệt hạn chế CORS MediaElementSource
+    for (let i = 0; i < count; i++) {
+      const centerWeight = 1 - Math.abs(i - (count - 1) * 0.5) / (count * 0.55);
+      const syllable =
+        0.45 +
+        Math.sin(clockSec * 9.5 + i * 0.65) * 0.28 +
+        Math.cos(clockSec * 16.2 - i * 0.9) * 0.22;
+      targetArray[i] = Math.max(0.14, Math.min(1, syllable * (0.45 + centerWeight * 0.65)));
+    }
+  }
+
+  /**
+   * Bật / Tắt Nhạc Chiến Đấu Dồn Dập 135 BPM (Drum & Bass Synth hành khúc kịch tính)
+   */
+  setCombatMusicMode(active) {
+    const nextState = Boolean(active && this.currentAct >= 1 && this.currentAct <= 3);
+    if (this.combatMusicActive === nextState) return;
+    this.combatMusicActive = nextState;
+
+    if (this.combatTimer) {
+      clearInterval(this.combatTimer);
+      this.combatTimer = null;
+    }
+
+    if (!this.initialized || !this.ctx) return;
+
+    if (this.combatMusicActive) {
+      this.combatStepIndex = 0;
+      const sixteenthMs = Math.round((60 / 135 / 4) * 1000); // ~111ms ở 135 BPM!
+      this._triggerCombatStep();
+      this.combatTimer = setInterval(() => {
+        if (!this.initialized || !this.combatMusicActive) return;
+        this._triggerCombatStep();
+      }, sixteenthMs);
+    } else if (!this.usingMp3ForCurrentAct) {
+      this.triggerAmbientChord();
+    }
+  }
+
+  _triggerCombatStep() {
+    if (!this.initialized || !this.ctx || this.usingMp3ForCurrentAct) return;
+    if (this.ctx.state === 'suspended') return;
+
+    const step = this.combatStepIndex % 16;
+    const barCount = Math.floor(this.combatStepIndex / 16);
+    this.combatStepIndex++;
+
+    const now = this.ctx.currentTime;
+    const act = this.currentAct;
+    const bassNotes = COMBAT_BASS_PATTERNS[act] || COMBAT_BASS_PATTERNS[1];
+
+    // 1. Trống trận / Kick dồn dập (Steps 0, 3, 6, 8, 10, 14)
+    if (step === 0 || step === 3 || step === 6 || step === 8 || step === 10 || step === 14) {
+      const kOsc = this.ctx.createOscillator();
+      const kGain = this.ctx.createGain();
+      kOsc.type = 'sine';
+      const accent = step === 0 || step === 8 ? 1.0 : 0.78;
+      kOsc.frequency.setValueAtTime(124, now);
+      kOsc.frequency.exponentialRampToValueAtTime(34, now + 0.11);
+
+      kGain.gain.setValueAtTime(0.32 * accent, now);
+      kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+
+      kOsc.connect(kGain);
+      kGain.connect(this.bgmBus);
+      kOsc.start(now);
+      kOsc.stop(now + 0.14);
+    }
+
+    // 2. Snare quân hành đanh gọn (Steps 4, 12 + dồn trống hành quân ở cuối nhịp chẵn 13, 15)
+    const isSnareMain = step === 4 || step === 12;
+    const isSnareRoll = barCount % 2 === 1 && (step === 13 || step === 15);
+    if ((isSnareMain || isSnareRoll) && this.noiseBuffer) {
+      const nSrc = this.ctx.createBufferSource();
+      nSrc.buffer = this.noiseBuffer;
+
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = isSnareMain ? 1850 : 2200;
+      bp.Q.value = 1.1;
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(isSnareMain ? 0.2 : 0.11, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + (isSnareMain ? 0.11 : 0.065));
+
+      nSrc.connect(bp);
+      bp.connect(nGain);
+      nGain.connect(this.bgmBus);
+      nSrc.start(now, Math.random() * 1.2, 0.12);
+
+      if (isSnareMain) {
+        const bodyOsc = this.ctx.createOscillator();
+        const bodyGain = this.ctx.createGain();
+        bodyOsc.type = 'triangle';
+        bodyOsc.frequency.setValueAtTime(195, now);
+        bodyOsc.frequency.exponentialRampToValueAtTime(92, now + 0.06);
+        bodyGain.gain.setValueAtTime(0.14, now);
+        bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        bodyOsc.connect(bodyGain);
+        bodyGain.connect(this.bgmBus);
+        bodyOsc.start(now);
+        bodyOsc.stop(now + 0.08);
+      }
+    }
+
+    // 3. Hi-hat kim loại giữ nhịp tốc độ 135 BPM mỗi nốt móc đơn / móc kép
+    if (step % 2 === 0 && this.noiseBuffer) {
+      const hSrc = this.ctx.createBufferSource();
+      hSrc.buffer = this.noiseBuffer;
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 5400;
+      const hGain = this.ctx.createGain();
+      hGain.gain.setValueAtTime(step % 4 === 2 ? 0.075 : 0.04, now);
+      hGain.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
+      hSrc.connect(hp);
+      hp.connect(hGain);
+      hGain.connect(this.bgmBus);
+      hSrc.start(now, Math.random(), 0.042);
+    }
+
+    // 4. Driving Drum & Bass Synth Bassline (mỗi nửa phách móc đơn)
+    if (step % 2 === 0) {
+      const bassFreq = bassNotes[(step / 2) % bassNotes.length];
+      const bOsc = this.ctx.createOscillator();
+      const bFilter = this.ctx.createBiquadFilter();
+      const bGain = this.ctx.createGain();
+
+      bOsc.type = 'sawtooth';
+      bOsc.frequency.setValueAtTime(bassFreq, now);
+
+      bFilter.type = 'lowpass';
+      bFilter.frequency.setValueAtTime(520, now);
+      bFilter.frequency.exponentialRampToValueAtTime(165, now + 0.16);
+      bFilter.Q.value = 2.4;
+
+      bGain.gain.setValueAtTime(0.17, now);
+      bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      bOsc.connect(bFilter);
+      bFilter.connect(bGain);
+      bGain.connect(this.bgmBus);
+      bOsc.start(now);
+      bOsc.stop(now + 0.19);
+    }
+
+    // 5. Hợp âm Brass / String kịch tính nhấn đầu mỗi ô nhịp (step === 0)
+    if (step === 0) {
+      const cfg = ACT_CHORDS[act] || ACT_CHORDS[1];
+      const stabChord = cfg.chords[barCount % cfg.chords.length];
+      stabChord.slice(0, 3).forEach((freq) => {
+        const sOsc = this.ctx.createOscillator();
+        const sFilter = this.ctx.createBiquadFilter();
+        const sGain = this.ctx.createGain();
+        sOsc.type = 'sawtooth';
+        sOsc.frequency.setValueAtTime(freq * 2, now);
+        sFilter.type = 'lowpass';
+        sFilter.frequency.setValueAtTime(1350, now);
+        sFilter.frequency.exponentialRampToValueAtTime(420, now + 0.32);
+
+        sGain.gain.setValueAtTime(0.055, now);
+        sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.36);
+
+        sOsc.connect(sFilter);
+        sFilter.connect(sGain);
+        sGain.connect(this.bgmBus);
+        sGain.connect(this.reverbBus.input);
+        sOsc.start(now);
+        sOsc.stop(now + 0.38);
+      });
+    }
   }
 
   async setAct(actNumber, force = false) {
     if (!force && this.currentAct === actNumber) return;
+    if (actNumber !== 2 && this.broadcastActive) {
+      this.stopBroadcast();
+    }
+    this.setCombatMusicMode(false);
     this.currentAct = actNumber;
     this.chordIndex = 0;
 
     if (!this.initialized) return;
+
+    this._syncBgmDucking();
 
     const hasMp3 = Boolean(this.bgmManifest && this.bgmManifest[actNumber]);
     if (hasMp3) {
@@ -352,13 +721,15 @@ export class SoundEngine {
     if (this.ambientTimer) clearInterval(this.ambientTimer);
     this.triggerAmbientChord();
     this.ambientTimer = setInterval(() => {
-      if (!this.initialized || this.usingMp3ForCurrentAct) return;
+      if (!this.initialized || this.usingMp3ForCurrentAct || this.combatMusicActive) return;
       this.triggerAmbientChord();
     }, 4200);
   }
 
   triggerAmbientChord() {
-    if (!this.initialized || !this.ctx || this.usingMp3ForCurrentAct) return;
+    if (!this.initialized || !this.ctx || this.usingMp3ForCurrentAct || this.combatMusicActive) {
+      return;
+    }
 
     const cfg = ACT_CHORDS[this.currentAct] || ACT_CHORDS[1];
     const chord = cfg.chords[this.chordIndex % cfg.chords.length];
@@ -981,6 +1352,49 @@ export class SoundEngine {
       osc.start(t);
       osc.stop(t + 1.0);
     });
+  }
+
+  /** Tiếng còi bom rít dài từ bầu trời lao xuống khẩu pháo cao xạ (Màn 3A) */
+  playBombWhistle() {
+    if (!this.initialized) return;
+    const nowMs = performance.now();
+    if (nowMs - this.lastBombWhistleAt < 500) return;
+    this.lastBombWhistleAt = nowMs;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1080, now);
+    osc.frequency.exponentialRampToValueAtTime(240, now + 0.95);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+
+    osc.connect(gain);
+    gain.connect(this.sfxBus);
+    gain.connect(this.reverbBus.input);
+    osc.start(now);
+    osc.stop(now + 1.04);
+  }
+
+  /** Tiếng bíp hẹn giờ khối bộc phá 2.0s sát Lô cốt Điện Biên Phủ (Màn 2B) */
+  playChargeBeep(urgent = false) {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(urgent ? 1240 : 880, now);
+
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+
+    osc.connect(gain);
+    gain.connect(this.sfxBus);
+    osc.start(now);
+    osc.stop(now + 0.09);
   }
 }
 

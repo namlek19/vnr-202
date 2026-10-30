@@ -8,6 +8,7 @@ import {
   drawFollowerComrade,
   drawEnemyGunBunker,
   drawJetFighterEnemy,
+  drawDetailedCharacter,
 } from './artAssets.js';
 
 /**
@@ -44,6 +45,8 @@ export class InWorldCombatSystem {
 
     // Đoàn NPC quần chúng / đồng đội nối đuôi nhân vật chính (Màn 1, 2, 3)
     this.followers = [];
+    // Chiến sĩ Vệ quốc đoàn & Tự vệ Thành lao ra từ các cửa nhà phố cổ khi phát Lời kêu gọi Toàn quốc kháng chiến
+    this.rallyUnits = [];
 
     // Thông báo nổi trên đầu nhân vật (ẩn nấp, cảnh báo trúng đạn, nhắc đọc văn kiện...)
     this.playerHeadNotice = null; // { text, tone: 'stealth' | 'warn' | 'gate' | 'info', timer }
@@ -65,11 +68,13 @@ export class InWorldCombatSystem {
       granaryMaxHp: 100,
       granaryDisplayHp: 100,
       granaryShake: 0,
+      hammerCooldown: 0,
       beam1X: 2040,
       beam1State: 'normal',
       beam2X: 2490,
       beam2State: 'normal',
       beam2Cycle: 0,
+      doorMgAccum: 0,
       isHidden: false,
       exposureTimer: 0,
       hitCooldown: 0,
@@ -78,7 +83,7 @@ export class InWorldCombatSystem {
     };
 
     this.act2 = {
-      // Phase 2A: Phố cổ Hà Nội (localX = 1395)
+      // Phase 2A: Phố cổ Hà Nội (localX = 1445, ngay dưới ban công tầng 2 nhà cổ cắt lớp)
       tankHp: 60,
       tankMaxHp: 60,
       tankDisplayHp: 60,
@@ -86,12 +91,14 @@ export class InWorldCombatSystem {
       tankFireTimer: 1.2,
       tankMuzzleWarn: false,
       tankHitFlash: 0,
+      rallyTriggered: false,
 
       // Phase 2B: Cứ điểm Điện Biên Phủ (localX = 2080..2780)
       pillboxHp: 150,
       pillboxMaxHp: 150,
       pillboxDisplayHp: 150,
       pillboxShake: 0,
+      plantedCharge: null, // { x, timer, maxTimer, nextBeepAt } — Hẹn giờ nổ 2.0s!
       mgCycleTimer: 0.4,
       mgWarning: false,
       mgFiring: false,
@@ -106,17 +113,20 @@ export class InWorldCombatSystem {
         { x: 1662, recoil: 0, aimAngle: -0.82 },
         { x: 1796, recoil: 0, aimAngle: -0.78 },
       ],
+      lastFiredGunX: null,
+      sameGunShots: 0,
+      sameGunStayTimer: 0,
       planes: [
         { id: 0, x: 1640, baseX: 1650, amp: 115, speed: 1.15, phase: 0.2, altOffset: -278, hp: 40, maxHp: 40, displayHp: 40, dir: 1, hitFlash: 0, alive: true },
         { id: 1, x: 1760, baseX: 1745, amp: 135, speed: 0.96, phase: 2.3, altOffset: -242, hp: 40, maxHp: 40, displayHp: 40, dir: -1, hitFlash: 0, alive: true },
         { id: 2, x: 1850, baseX: 1810, amp: 105, speed: 1.32, phase: 4.1, altOffset: -306, hp: 40, maxHp: 40, displayHp: 40, dir: 1, hitFlash: 0, alive: true },
       ],
-      aaBombTimer: 1.7,
+      aaBombTimer: 1.9,
 
       // Phase 3B: Đại lộ Sài Gòn & Xe tăng 390 húc cổng Dinh Độc Lập
       bunkers: [
-        { id: 1, label: 'Ụ SÚNG ĐỊCH 1', x: 2410, hp: 50, maxHp: 50, displayHp: 50, hitFlash: 0, fireTimer: 0.9, firingAnim: 0 },
-        { id: 2, label: 'Ụ SÚNG ĐỊCH 2', x: 2545, hp: 50, maxHp: 50, displayHp: 50, hitFlash: 0, fireTimer: 1.5, firingAnim: 0 },
+        { id: 1, label: 'Ụ SÚNG ĐỊCH 1', x: 2410, hp: 50, maxHp: 50, displayHp: 50, hitFlash: 0, fireTimer: 0.9, firingAnim: 0, shotToggle: 0 },
+        { id: 2, label: 'Ụ SÚNG ĐỊCH 2', x: 2545, hp: 50, maxHp: 50, displayHp: 50, hitFlash: 0, fireTimer: 1.5, firingAnim: 0, shotToggle: 1 },
       ],
       tankX: 2250,
       tankTargetX: 2250,
@@ -133,12 +143,16 @@ export class InWorldCombatSystem {
 
   resetAll() {
     this.followers = [];
+    this.rallyUnits = [];
     this.projectiles = [];
     this.fallingBombs = [];
     this.tracerLines = [];
     this.airPlanesAct2 = [];
     this.playerHeadNotice = null;
     this.gateUnlockedCelebrated.clear();
+    if (this.sound && typeof this.sound.setCombatMusicMode === 'function') {
+      this.sound.setCombatMusicMode(false);
+    }
     this.createFreshStates();
   }
 
@@ -147,7 +161,11 @@ export class InWorldCombatSystem {
     this.fallingBombs = [];
     this.tracerLines = [];
     this.airPlanesAct2 = [];
+    this.rallyUnits = [];
     this.playerHeadNotice = null;
+    if (this.sound && typeof this.sound.setCombatMusicMode === 'function') {
+      this.sound.setCombatMusicMode(false);
+    }
   }
 
   /**
@@ -351,7 +369,94 @@ export class InWorldCombatSystem {
       pillboxDestroyed: this.act2.pillboxHp <= 0,
       mgWarning: this.act2.mgWarning,
       mgFiring: this.act2.mgFiring,
+      plantedCharge: this.act2.plantedCharge,
     };
+  }
+
+  /**
+   * Kiểm tra người chơi có đang ở trong vùng giao tranh còn hoạt động (để bật nhạc trống trận 135 BPM)
+   */
+  isInActiveCombatZone(act, player, completedQtes) {
+    const x = player.x;
+    if (act === 1) {
+      if (!completedQtes.has('qte_1a') && this.act1.granaryHp > 0) {
+        return x >= 1890 && x <= 2560;
+      }
+      return false;
+    }
+    if (act === 2) {
+      if (!this.act2.tankDestroyed && x >= 1000 && x <= 1520) return true;
+      if (this.act2.pillboxHp > 0 && !completedQtes.has('qte_2a') && x >= 2040 && x <= 2640) {
+        return true;
+      }
+      return false;
+    }
+    if (act === 3) {
+      if (!completedQtes.has('qte_3a') && this.act3.planes.some((p) => p.alive)) {
+        if (x >= 1590 && x <= 1925) return true;
+      }
+      if (!completedQtes.has('qte_3b') && x >= 2180 && x <= 2700) return true;
+      return false;
+    }
+    return false;
+  }
+
+  /**
+   * Khi phát "Lời kêu gọi toàn quốc kháng chiến" (act2_item2):
+   * 6 chiến sĩ Vệ quốc đoàn & Tự vệ Thành lao ra từ các cửa nhà phố cổ hô vang khẩu hiệu,
+   * sau 3.8s nhập vào đoàn đồng đội đi theo cùng đánh Thiết giáp Pháp!
+   */
+  triggerHanoiBroadcastRally(getGroundY) {
+    if (this.act2.rallyTriggered) return;
+    this.act2.rallyTriggered = true;
+    const doorXs = [820, 915, 1005, 1150, 1245, 1300];
+    this.rallyUnits = doorXs.map((dx, idx) => ({
+      x: dx,
+      y: getGroundY(dx),
+      startX: dx,
+      age: -idx * 0.18,
+      life: 3.8,
+      variant: idx,
+      facing: 1,
+      walkCycle: idx * 0.7,
+    }));
+    for (const dx of doorXs) {
+      this.vfx.spawnCelebrationBurst(dx, getGroundY(dx) - 46, 10);
+    }
+    this.setHeadNotice('“Quyết tử cho Tổ quốc quyết sinh!” — Toàn dân đứng lên kháng chiến!', 'info', 3.6);
+  }
+
+  updateRallyUnits(dt, act, player, getGroundY) {
+    if (act !== 2 || this.rallyUnits.length === 0) return;
+    for (let i = this.rallyUnits.length - 1; i >= 0; i--) {
+      const u = this.rallyUnits[i];
+      u.age += dt;
+      if (u.age < 0) continue;
+      // Bước ra khỏi cửa nhà rồi chạy dần về phía nhân vật chính
+      const targetX = u.age < 1.4 ? u.startX + 18 : player.x - 40 - u.variant * 22;
+      const dx = targetX - u.x;
+      const step = Math.sign(dx) * Math.min(Math.abs(dx), 180 * dt);
+      u.x += step;
+      u.facing = dx >= 0 ? 1 : -1;
+      if (Math.abs(step) > 0.2) u.walkCycle += dt * 9;
+      u.y = getGroundY(u.x);
+      if (u.age >= u.life) {
+        const idx = this.followers.length;
+        this.followers.push({
+          index: idx,
+          x: u.x,
+          y: u.y,
+          vx: 0,
+          vy: 0,
+          onGround: true,
+          facing: u.facing,
+          walkCycle: u.walkCycle,
+          attackPose: null,
+          attackTimer: 0,
+        });
+        this.rallyUnits.splice(i, 1);
+      }
+    }
   }
 
   getTank390RenderState(completedQtes) {
@@ -438,20 +543,27 @@ export class InWorldCombatSystem {
       return true;
     }
 
-    // 2. Vung búa / đuốc đập phá Kho thóc Nhật
+    // 2. Vung búa / đuốc đập phá Kho thóc Nhật (hồi chiêu 0.5s — chống bấm spam!)
+    if (this.act1.hammerCooldown > 0) return false;
+    const atDoor = this.act1.granaryHp > 0 && player.x >= 2245 && player.x <= 2395;
+    if (atDoor && this.act1.beam2State === 'sweep_door') {
+      this.setHeadNotice(
+        'Lính Nhật đang xả súng vào cửa kho! Lùi về nấp sau ụ rơm số 3!',
+        'warn',
+        1.4
+      );
+      return false;
+    }
+    this.act1.hammerCooldown = 0.5;
     player.pose = 'hammer';
     player.poseTimer = 0;
     player.poseHoldDuration = 0.42;
     this.sound.playMeleeSwing();
     this.triggerFollowersAttack('hammer', player.facing || 1);
 
-    if (
-      this.act1.granaryHp > 0 &&
-      player.x >= 2245 &&
-      player.x <= 2395
-    ) {
+    if (atDoor) {
       player.facing = 1;
-      const dmg = 14;
+      const dmg = 15;
       this.act1.granaryHp = Math.max(0, this.act1.granaryHp - dmg);
       this.act1.granaryShake = 9.5;
 
@@ -507,42 +619,27 @@ export class InWorldCombatSystem {
       return true;
     }
 
-    // 2. Giai đoạn 2B: Áp sát Lô cốt Điện Biên (x = 2500..2585) -> Đánh khối bộc phá (-50 HP)!
+    // 2. Giai đoạn 2B: Áp sát Lô cốt Điện Biên (x = 2518..2588) -> Gài KHỐI BỘC PHÁ HẸN GIỜ 2.0 GIÂY!
     if (
       this.act2.pillboxHp > 0 &&
-      player.x >= 2498 &&
-      player.x <= 2585
+      player.x >= 2516 &&
+      player.x <= 2590
     ) {
+      if (this.act2.plantedCharge) {
+        this.setHeadNotice('Bộc phá đã gài! Chạy ngay về Hào số 3 và cúi thấp [S / ▼]!', 'warn', 1.4);
+        return false;
+      }
       player.facing = 1;
       player.pose = 'plant_charge';
       player.poseTimer = 0;
       player.poseHoldDuration = 0.52;
       this.triggerFollowersAttack('plant_charge', 1);
 
-      this.act2.pillboxHp = Math.max(0, this.act2.pillboxHp - 50);
-      this.act2.pillboxShake = 11;
-
-      this.sound.playExplosion(1.1);
-      this.sound.playQteHit(3 - Math.ceil(this.act2.pillboxHp / 50));
-      this.vfx.spawnExplosion(2582, getGroundY(2582) - 12, 1.15);
-      this.vfx.triggerShake(16, 0.36);
-      this.vfx.triggerFlash(0.45, '#fed7aa', 2.4);
-
-      if (this.act2.pillboxHp <= 0) {
-        completedQtes.add('qte_2a');
-        this.airPlanesAct2 = [];
-        this.fallingBombs = [];
-        this.projectiles = [];
-        this.sound.playExplosion(1.35);
-        this.sound.playQteVictory();
-        this.vfx.spawnExplosion(2592, getGroundY(2592) - 18, 1.45);
-        this.vfx.triggerShake(22, 0.55);
-        this.setHeadNotice(
-          'Lô cốt Điện Biên đã sập! Hãy nhảy lên nóc hầm Đờ Cátơri bấm [F] phất cờ toàn thắng!',
-          'info',
-          3.6
-        );
-      }
+      this.act2.plantedCharge = { x: 2558, timer: 2.0, maxTimer: 2.0, nextBeepAt: 1.5 };
+      // Lô cốt phát hiện -> bật cảnh báo đỏ ngay lập tức, ép người chơi lùi về hào!
+      this.act2.mgCycleTimer = Math.max(this.act2.mgCycleTimer, 2.5);
+      this.sound.playChargeBeep(false);
+      this.setHeadNotice('Đã gài bộc phá (2.0s)! Lùi nhanh về Hào số 3 và cúi thấp [S / ▼]!', 'warn', 2.0);
       return true;
     }
 
@@ -559,18 +656,18 @@ export class InWorldCombatSystem {
     let vx = (player.facing || 1) * 285;
     let vy = -330;
 
-    // Nếu đứng trên ban công / mái phố cổ gần xe tăng Pháp (1395), tự căn parabol chuẩn xác xuống nóc xe tăng!
-    if (!this.act2.tankDestroyed && player.x >= 980 && player.x <= 1455) {
+    // Nếu đứng trên ban công tầng 2 nhà cổ gần xe tăng Pháp (1445), tự căn parabol chuẩn xác xuống nóc xe tăng!
+    if (!this.act2.tankDestroyed && player.x >= 1000 && player.x <= 1500) {
       if (player.dy > -42) {
         this.setHeadNotice(
-          'Hãy nhảy lên mái tàu điện / ban công tầng 2 để tránh đạn pháo và ném bom xăng trúng nóc Thiết giáp!',
+          'Hãy vào nhà cổ leo cầu thang gỗ lên ban công tầng 2 để ném bom xăng trúng nóc Thiết giáp!',
           'warn',
           2.6
         );
       } else {
-        player.facing = player.x <= 1405 ? 1 : -1;
-        const targetX = 1395;
-        const targetY = getGroundY(1395) - 34;
+        player.facing = player.x <= 1455 ? 1 : -1;
+        const targetX = 1445;
+        const targetY = getGroundY(1445) - 34;
         const flightT = 0.56;
         const grav = 920;
         vx = (targetX - startX) / flightT;
@@ -610,6 +707,23 @@ export class InWorldCombatSystem {
       }
 
       if (nearestGun) {
+        // Hồi nạp đạn pháo 0.42s
+        if (this.act3.lastShotAt && this.clock - this.act3.lastShotAt < 0.42) return false;
+        this.act3.lastShotAt = this.clock;
+
+        // Theo dõi số phát bắn liên tiếp trên cùng 1 khẩu -> máy bay Mỹ khóa mục tiêu & ném bom!
+        if (this.act3.lastFiredGunX === nearestGun.x) {
+          this.act3.sameGunShots++;
+        } else {
+          this.act3.lastFiredGunX = nearestGun.x;
+          this.act3.sameGunShots = 1;
+          this.act3.sameGunStayTimer = 0;
+        }
+        const lockThreshold = 2 + Math.floor(Math.random() * 2); // 2..3 phát
+        if (this.act3.sameGunShots >= lockThreshold) {
+          this.lockBombOntoGun(nearestGun.x, baseGroundY, getGroundY);
+        }
+
         // Chọn mục tiêu máy bay địch gần khẩu cao xạ nhất
         let targetPlane = alivePlanes[0];
         let bestDist = Infinity;
@@ -656,7 +770,9 @@ export class InWorldCombatSystem {
       }
     }
 
-    // 2. Giai đoạn 3B (hoặc trên đường Trường Sơn): Bắn loạt đạn súng tiểu liên AK-47!
+    // 2. Giai đoạn 3B (hoặc trên đường Trường Sơn): Bắn loạt đạn súng tiểu liên AK-47! (hồi chiêu 0.38s)
+    if (this.act3.lastAkAt && this.clock - this.act3.lastAkAt < 0.38) return false;
+    this.act3.lastAkAt = this.clock;
     const dir =
       player.x >= 2190 && this.act3.bunkers.some((b) => b.hp > 0)
         ? 1
@@ -671,7 +787,7 @@ export class InWorldCombatSystem {
     this.vfx.triggerShake(4.5, 0.12);
 
     const muzzleX = player.x + dir * 32;
-    const muzzleY = player.y - 48;
+    const muzzleY = player.y - (player.isCrouching ? 30 : 48);
     this.projectiles.push({
       kind: 'ak_burst',
       act: 3,
@@ -777,6 +893,14 @@ export class InWorldCombatSystem {
 
     // 2. Cập nhật đoàn NPC đồng đội nối đuôi theo sau nhân vật chính (Màn 1, 2, 3)
     this.updateFollowers(dt, act, player, baseGroundY, getGroundY);
+    this.updateRallyUnits(dt, act, player, getGroundY);
+
+    // 2b. Nhạc trống trận 135 BPM khi đang ở trong vùng giao tranh còn hoạt động
+    if (this.sound && typeof this.sound.setCombatMusicMode === 'function') {
+      this.sound.setCombatMusicMode(
+        Boolean(canControl) && this.isInActiveCombatZone(act, player, completedQtes)
+      );
+    }
 
     if (!canControl) return;
 
@@ -883,6 +1007,7 @@ export class InWorldCombatSystem {
     s.granaryDisplayHp += (s.granaryHp - s.granaryDisplayHp) * Math.min(1, dt * 10);
     s.granaryShake = Math.max(0, s.granaryShake - dt * 24);
     s.hitCooldown = Math.max(0, s.hitCooldown - dt);
+    s.hammerCooldown = Math.max(0, s.hammerCooldown - dt);
 
     if (completedQtes.has('qte_1a') || s.granaryHp <= 0) {
       s.isHidden = false;
@@ -919,6 +1044,46 @@ export class InWorldCombatSystem {
       s.beam2X = u < 0.55
         ? 2428 - (u / 0.55) * 156 // 2428 -> 2272
         : 2272 + ((u - 0.55) / 0.45) * 196; // 2272 -> 2468
+    }
+
+    // Khi đèn pha Tháp 2 chuyển ĐỎ quét cửa kho: lính gác Nhật xả súng máy liên hồi vào cửa Kho thóc (2255..2405)!
+    if (s.beam2State === 'sweep_door') {
+      s.doorMgAccum += dt;
+      while (s.doorMgAccum >= 0.16) {
+        s.doorMgAccum -= 0.16;
+        const hitX = 2262 + Math.random() * 140;
+        this.tracerLines.push({
+          x1: 2431,
+          y1: getGroundY(2445) - 236,
+          x2: hitX,
+          y2: getGroundY(hitX) - 6 - Math.random() * 40,
+          color: '#fca5a5',
+          age: 0,
+          life: 0.12,
+        });
+      }
+      if (
+        player.x >= 2272 &&
+        player.x <= 2408 &&
+        s.hitCooldown <= 0
+      ) {
+        s.hitCooldown = 1.0;
+        this.sound.playMachineGunBurst(4, 150);
+        this.sound.playAlertHit();
+        this.vfx.triggerFlash(0.4, 'rgba(239, 68, 68, 0.72)', 2.8);
+        this.vfx.triggerShake(10, 0.24);
+        player.x = 2205;
+        player.vx = -200;
+        player.dy = sampleGroundOffset(1, player.x);
+        player.y = getGroundY(player.x);
+        this.setHeadNotice(
+          'Súng máy tháp canh quét cửa kho! Nấp sau ụ rơm chờ đèn hết đỏ rồi mới đập tiếp!',
+          'warn',
+          2.6
+        );
+      }
+    } else {
+      s.doorMgAccum = 0;
     }
 
     // Kiểm tra người chơi đang nấp tại 1 trong 3 ụ rơm lớn
@@ -990,14 +1155,14 @@ export class InWorldCombatSystem {
     s.pillboxShake = Math.max(0, s.pillboxShake - dt * 24);
     s.hitCooldown = Math.max(0, s.hitCooldown - dt);
 
-    // --- GIAI ĐOẠN 2A: XE TĂNG PHÁP Ở PHỐ CỔ HÀ NỘI (x = 1395) ---
+    // --- GIAI ĐOẠN 2A: XE TĂNG PHÁP Ở PHỐ CỔ HÀ NỘI (x = 1445, ngay sau chiến lũy 1352..1412) ---
     if (!s.tankDestroyed) {
       // Chặn không cho đi qua Thiết giáp Pháp khi chưa tiêu diệt!
-      if (player.dy > -42 && player.x > 1338) {
-        player.x = 1338;
+      if (player.dy > -42 && player.x > 1345) {
+        player.x = 1345;
         player.vx = 0;
-      } else if (player.x > 1425) {
-        player.x = 1425;
+      } else if (player.x > 1470) {
+        player.x = 1470;
         player.vx = 0;
         this.setHeadNotice(
           'Hãy bấm [F] từ ban công tầng 2 ném bom xăng tiêu diệt Thiết giáp địch bên dưới để mở đường!',
@@ -1006,7 +1171,7 @@ export class InWorldCombatSystem {
         );
       }
 
-      if (player.x >= 760 && player.x <= 1460) {
+      if (player.x >= 760 && player.x <= 1500) {
         s.tankFireTimer -= dt;
         s.tankMuzzleWarn = s.tankFireTimer <= 0.6 && s.tankFireTimer > 0;
         if (s.tankFireTimer <= 0) {
@@ -1017,7 +1182,7 @@ export class InWorldCombatSystem {
             kind: 'tank_shell',
             act: 2,
             fromPlayer: false,
-            x: 1322,
+            x: 1372,
             y: baseGroundY - 36,
             vx: -480,
             vy: 0,
@@ -1034,6 +1199,65 @@ export class InWorldCombatSystem {
       if (player.x > 2574) {
         player.x = 2574;
         player.vx = 0;
+      }
+
+      // KHỐI BỘC PHÁ HẸN GIỜ 2.0s: đếm ngược, bíp cảnh báo, nổ -50 HP lô cốt
+      if (s.plantedCharge) {
+        const pc = s.plantedCharge;
+        pc.timer -= dt;
+        if (pc.timer <= pc.nextBeepAt && pc.timer > 0) {
+          this.sound.playChargeBeep(pc.timer < 0.85);
+          pc.nextBeepAt -= pc.timer < 0.85 ? 0.18 : 0.5;
+        }
+        if (pc.timer <= 0) {
+          s.plantedCharge = null;
+          s.pillboxHp = Math.max(0, s.pillboxHp - 50);
+          s.pillboxShake = 12;
+          this.sound.playExplosion(1.2);
+          this.sound.playQteHit(3 - Math.ceil(s.pillboxHp / 50));
+          this.vfx.spawnExplosion(2570, getGroundY(2570) - 12, 1.25);
+          this.vfx.triggerShake(18, 0.42);
+          this.vfx.triggerFlash(0.5, '#fed7aa', 2.4);
+
+          // Người chơi chưa kịp lùi về Hào số 3 & cúi thấp -> bị sức ép hất văng!
+          const safeInTrench = player.x <= 2514 && player.dy >= 22;
+          if (!safeInTrench && player.x >= 2470) {
+            s.hitCooldown = 1.1;
+            this.sound.playAlertHit();
+            player.x = 2470;
+            player.vx = -240;
+            player.dy = sampleGroundOffset(2, player.x);
+            player.y = baseGroundY + player.dy;
+            this.setHeadNotice(
+              'Bị sức ép bộc phá hất văng! Lần sau hãy lùi sâu vào Hào số 3 trước khi nổ!',
+              'warn',
+              2.6
+            );
+          }
+
+          if (s.pillboxHp <= 0) {
+            completedQtes.add('qte_2a');
+            this.airPlanesAct2 = [];
+            this.fallingBombs = [];
+            this.projectiles = [];
+            this.sound.playExplosion(1.35);
+            this.sound.playQteVictory();
+            this.vfx.spawnExplosion(2592, getGroundY(2592) - 18, 1.45);
+            this.vfx.triggerShake(22, 0.55);
+            this.setHeadNotice(
+              'Lô cốt Điện Biên đã sập! Hãy nhảy lên nóc hầm Đờ Cátơri bấm [F] phất cờ toàn thắng!',
+              'info',
+              3.6
+            );
+            return;
+          } else {
+            this.setHeadNotice(
+              `Bộc phá nổ tung! Lô cốt còn ${Math.ceil(s.pillboxHp)} HP — chờ đại liên nghỉ rồi lao lên gài tiếp!`,
+              'info',
+              2.6
+            );
+          }
+        }
       }
 
       if (player.x >= 2050 && player.x <= 2610) {
@@ -1062,7 +1286,7 @@ export class InWorldCombatSystem {
               act: 2,
               fromPlayer: false,
               x: 2566,
-              y: baseGroundY - 34, // Bay ngang trên mặt đất phẳng — sượt qua đầu nếu đứng dưới hào sâu (dy >= 22)!
+              y: baseGroundY - 20, // Bay sát mặt đất phẳng — sượt ngay trên mũ chiến sĩ đang cúi thấp dưới hào sâu!
               vx: -760,
               vy: 0,
               gravity: 0,
@@ -1183,20 +1407,23 @@ export class InWorldCombatSystem {
         player.vx = 0;
       }
 
-      // Ụ súng tiền tiêu đang còn sống sẽ bắn đạn ngang tầm thấp (nhảy W qua được!)
+      // Ụ súng tiền tiêu xen kẽ LÀN ĐẠN THẤP (nhảy W / ▲) và LÀN ĐẠN CAO (cúi S / ▼)!
       const activeBunker = b1Alive ? s.bunkers[0] : b2Alive ? s.bunkers[1] : null;
       if (activeBunker && player.x >= 2180) {
         activeBunker.fireTimer -= dt;
         if (activeBunker.fireTimer <= 0) {
-          activeBunker.fireTimer = 1.72;
+          activeBunker.fireTimer = 1.6;
           activeBunker.firingAnim = 0.28;
-          this.sound.playMachineGunBurst(2, 145);
+          activeBunker.shotToggle = (activeBunker.shotToggle + 1) % 2;
+          const isHigh = activeBunker.shotToggle === 1;
+          this.sound.playMachineGunBurst(2, isHigh ? 165 : 145);
           this.projectiles.push({
             kind: 'bunker_bullet',
             act: 3,
             fromPlayer: false,
+            lane: isHigh ? 'high' : 'low',
             x: activeBunker.x - 44,
-            y: getGroundY(activeBunker.x) - 26, // Tầm thấp để người chơi bấm W / ▲ nhảy vọt qua!
+            y: getGroundY(activeBunker.x) - (isHigh ? 68 : 22),
             vx: -385,
             vy: 0,
             gravity: 0,
@@ -1251,6 +1478,23 @@ export class InWorldCombatSystem {
         s.tankMoving = false;
       }
     }
+  }
+
+  lockBombOntoGun(gunX, baseGroundY, getGroundY) {
+    if (this.sound && typeof this.sound.playBombWhistle === 'function') {
+      this.sound.playBombWhistle();
+    }
+    this.setHeadNotice(
+      'Máy bay địch khóa mục tiêu khẩu pháo này! Di chuyển sang khẩu cao xạ bên cạnh ngay!',
+      'warn',
+      2.8
+    );
+    this.spawnTelegraphedBomb(
+      gunX + (Math.random() - 0.5) * 60,
+      baseGroundY - 260,
+      gunX,
+      getGroundY(gunX)
+    );
   }
 
   // -------------------- ĐẠN BAY & BOM RƠI CÓ VÒNG ĐỎ CẢNH BÁO --------------------
@@ -1338,10 +1582,10 @@ export class InWorldCombatSystem {
           this.vfx.spawnTorchEmber(pr.x, pr.y, pr.vx >= 0 ? 1 : -1);
         }
 
-        const tankGy = getGroundY(1395);
+        const tankGy = getGroundY(1445);
         if (
           !this.act2.tankDestroyed &&
-          Math.abs(pr.x - 1395) < 58 &&
+          Math.abs(pr.x - 1445) < 58 &&
           pr.y >= tankGy - 56 &&
           pr.y <= tankGy + 12
         ) {
@@ -1355,7 +1599,7 @@ export class InWorldCombatSystem {
             this.act2.tankDestroyed = true;
             this.sound.playExplosion(1.3);
             this.sound.playQteVictory();
-            this.vfx.spawnExplosion(1395, tankGy - 20, 1.45);
+            this.vfx.spawnExplosion(1445, tankGy - 20, 1.45);
             this.vfx.triggerFlash(0.65, '#fed7aa', 1.8);
             this.vfx.triggerShake(19, 0.48);
             this.setHeadNotice(
@@ -1495,9 +1739,10 @@ export class InWorldCombatSystem {
           this.vfx.triggerFlash(0.48, 'rgba(239, 68, 68, 0.8)', 2.6);
           this.vfx.triggerShake(12, 0.28);
 
-          // Đẩy lùi người chơi rơi về hố giao thông hào phía sau gần nhất
-          if (player.x > 2430) player.x = 2355;
-          else if (player.x > 2235) player.x = 2155;
+          // Đẩy lùi người chơi rơi về hố giao thông hào phía sau gần nhất (Hào 3: 2436..2512, Hào 2: 2276..2366, Hào 1: 2100..2190)
+          if (player.x > 2512) player.x = 2474;
+          else if (player.x > 2390) player.x = 2322;
+          else if (player.x > 2214) player.x = 2146;
           else player.x = Math.max(2065, player.x - 90);
 
           player.vx = -180;
@@ -1514,22 +1759,38 @@ export class InWorldCombatSystem {
         }
       }
 
-      // 6. Đạn bắn ngang tầm thấp từ 2 Ụ súng Sài Gòn (Act 3B — nhảy W vượt qua!)
+      // 6. Đạn bắn ngang tầm thấp / cao từ 2 Ụ súng Sài Gòn (Act 3B)
       if (pr.kind === 'bunker_bullet' && this.act3.hitCooldown <= 0) {
-        if (
-          Math.abs(pr.x - player.x) < 18 &&
-          pr.y >= player.y - 54 &&
-          pr.y <= player.y - 4
-        ) {
+        const isHigh = pr.lane === 'high';
+        let hitsPlayer = false;
+        if (isHigh) {
+          // Làn đạn cao: người chơi đứng hoặc nhảy bị trúng; CÚI [S / ▼] né an toàn!
+          hitsPlayer =
+            !player.isCrouching &&
+            Math.abs(pr.x - player.x) < 22 &&
+            pr.y >= player.y - 88 &&
+            pr.y <= player.y - 45;
+        } else {
+          // Làn đạn thấp: NHẢY [W / ▲] vượt qua an toàn; đứng hoặc cúi trên mặt đất bị trúng!
+          const jumpedOver = !player.onGround && player.y < getGroundY(player.x) - 28;
+          hitsPlayer =
+            !jumpedOver &&
+            Math.abs(pr.x - player.x) < 20 &&
+            pr.y >= player.y - 45 &&
+            pr.y <= player.y + 10;
+        }
+        if (hitsPlayer) {
           this.act3.hitCooldown = 0.85;
           this.sound.playAlertHit();
           this.vfx.triggerFlash(0.36, 'rgba(239, 68, 68, 0.65)', 3.0);
           player.x = Math.max(2195, player.x - 65);
           player.vx = -165;
           this.setHeadNotice(
-            'Hãy bấm Nhảy [W / ▲] vượt qua làn đạn thấp và bấm [F] bắn hạ ụ súng địch!',
+            isHigh
+              ? 'Đạn đại liên tầm cao! Hãy Cúi người [S / ▼] né đạn và bắn AK phản kích!'
+              : 'Đạn đại liên tầm thấp! Hãy Nhảy [W / ▲] qua làn đạn và bắn AK phản kích!',
             'warn',
-            2.3
+            2.4
           );
           this.projectiles.splice(i, 1);
           continue;
@@ -1644,10 +1905,10 @@ export class InWorldCombatSystem {
   }
 
   renderAct2WorldCombat(ctx, cameraX, width, getGroundY) {
-    // 1. Xe thiết giáp Pháp chắn ngang Phố cổ Hà Nội (localX = 1395)
-    const tx = 1395 - cameraX;
+    // 1. Xe thiết giáp Pháp chắn ngang Phố cổ Hà Nội (localX = 1445)
+    const tx = 1445 - cameraX;
     if (tx > -180 && tx < width + 180) {
-      const tgy = getGroundY(1395);
+      const tgy = getGroundY(1445);
       if (this.act2.tankDestroyed) {
         // Xác xe tăng Pháp cháy đen bốc khói sau 3 quả bom xăng!
         ctx.save();
@@ -1676,6 +1937,37 @@ export class InWorldCombatSystem {
           ctx.fill();
           ctx.restore();
         }
+      }
+    }
+
+    // 1b. Đoàn chiến sĩ Vệ quốc đoàn & Tự vệ Thành lao ra từ các cửa nhà phố cổ
+    for (const u of this.rallyUnits) {
+      if (u.age < 0) continue;
+      const sx = u.x - cameraX;
+      if (sx < -90 || sx > width + 90) continue;
+      drawDetailedCharacter(
+        ctx,
+        sx,
+        u.y,
+        'act2',
+        {
+          facing: u.facing,
+          walkCycle: u.walkCycle,
+          speedRatio: 0.85,
+          onGround: true,
+          pose: 'rally_cheer',
+          poseTimer: this.clock + u.variant,
+        },
+        this.clock
+      );
+      if (u.age < 3.2) {
+        this.drawCompactWorldTag(
+          ctx,
+          sx,
+          u.y - 78,
+          '“Quyết tử cho Tổ quốc quyết sinh!”',
+          '#ef4444'
+        );
       }
     }
 
@@ -1938,8 +2230,8 @@ export class InWorldCombatSystem {
     if (act === 2) {
       // Thanh máu Thiết giáp Pháp ở Phố cổ Hà Nội
       if (!this.act2.tankDestroyed) {
-        const tx = 1395 - cameraX;
-        const tgy = getGroundY(1395);
+        const tx = 1445 - cameraX;
+        const tgy = getGroundY(1445);
         if (tx > -200 && tx < width + 200) {
           this.drawWorldHealthBar(
             ctx,
@@ -1952,7 +2244,7 @@ export class InWorldCombatSystem {
             `THIẾT GIÁP ĐỊCH: ${Math.ceil(this.act2.tankHp)} / 60 HP`,
             '#ef4444'
           );
-          if (player.dy <= -42 && player.x >= 1020 && player.x <= 1435) {
+          if (player.dy <= -42 && player.x >= 1020 && player.x <= 1475) {
             this.drawCompactWorldTag(
               ctx,
               tx,
