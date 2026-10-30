@@ -91,12 +91,15 @@ const vovBars = Array.from(document.querySelectorAll('.vov-bar'));
 const vovBarHeights = new Float32Array(18);
 
 // Static text bindings from storyData.js
-incensePrompt.textContent = FINALE_EVENT.promptText;
-finaleQuoteText.textContent = FINALE_EVENT.quoteText;
-finaleQuoteAuthor.textContent = FINALE_EVENT.quoteAuthor;
-finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
-finaleLessonText.textContent = FINALE_EVENT.lessonText;
-btnReplay.querySelector('span').textContent = FINALE_EVENT.replayButtonLabel;
+incensePrompt.textContent = isMobileMode ? 'Chạm & Giữ để thắp nén tâm hương' : 'Giữ [F] để thắp nén tâm hương';
+if (finaleQuoteText) finaleQuoteText.textContent = FINALE_EVENT.quoteText;
+if (finaleQuoteAuthor) finaleQuoteAuthor.textContent = FINALE_EVENT.quoteAuthor;
+if (finaleLessonTitle) finaleLessonTitle.textContent = FINALE_EVENT.lessonTitle;
+if (finaleLessonText) finaleLessonText.textContent = FINALE_EVENT.lessonText;
+if (btnReplay) {
+  const replaySpan = btnReplay.querySelector('span');
+  if (replaySpan) replaySpan.textContent = FINALE_EVENT.replayButtonLabel;
+}
 
 // ==================== DEVICE, VIEWPORT & PHYSICS STATE ====================
 let viewportWidth = window.innerWidth;
@@ -333,13 +336,12 @@ function updateViewportAndDeviceMode() {
   if (isMobileMode) {
     introControlsLine.innerHTML =
       'Xoay cần gạt <span>Trái / Phải</span> • <span>▲ / ▼</span> Nhảy / Tụt tầng • Nút đỏ <span>TẤN CÔNG [F]</span> hành động • <span>Chạm</span> vật phẩm để khám phá';
-    incensePrompt.textContent =
-      'Nhấn và giữ biểu tượng nén hương (hoặc nút [F]) trong 2.5 giây để thắp nén tâm hương tri ân';
-    incenseBtnLabel.innerHTML = 'Nhấn &amp; Giữ dâng hương';
+    incensePrompt.textContent = 'Chạm & Giữ để thắp nén tâm hương';
+    incenseBtnLabel.innerHTML = 'Chạm &amp; Giữ dâng hương';
   } else {
     introControlsLine.innerHTML =
       'Di chuyển <span>A / D</span> • Nhảy <span>W</span> • Xuống tầng <span>S</span> • Tương tác <span>E</span> • Tấn công / Hành động <span>F / J</span>';
-    incensePrompt.textContent = FINALE_EVENT.promptText;
+    incensePrompt.textContent = 'Giữ [F] để thắp nén tâm hương';
     incenseBtnLabel.innerHTML = 'Giữ <kbd>F</kbd> dâng hương';
   }
 
@@ -428,14 +430,16 @@ function snapPlayerToSurface(localX, platformId = null) {
 }
 
 function triggerPlayerJump() {
-  if (!gameStarted || modalState.open || transitionState.active || finaleState.completed) {
+  const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
+  if (!gameStarted || modalState.open || transitionState.active || isCeremonyBowing) {
     return;
   }
   player.jumpBufferTimer = 0.14;
 }
 
 function triggerPlayerDropThrough() {
-  if (!gameStarted || modalState.open || transitionState.active || finaleState.completed) {
+  const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
+  if (!gameStarted || modalState.open || transitionState.active || isCeremonyBowing) {
     return;
   }
   if (player.onGround && player.currentPlatformId !== null) {
@@ -450,13 +454,13 @@ function triggerPlayerDropThrough() {
 }
 
 function triggerDirectCombatAction() {
+  const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
   if (
     !gameStarted ||
     isPortraitPaused ||
     modalState.open ||
     transitionState.active ||
-    finaleState.overlayShown ||
-    finaleState.completed
+    isCeremonyBowing
   ) {
     return;
   }
@@ -530,7 +534,13 @@ function updateObjectiveChecklist() {
   if (!objectiveCounter || !objectiveList) return;
   const items = interactablesState.filter((it) => it.act === currentAct);
   const visitedCount = items.filter((it) => it.visited).length;
-  objectiveCounter.textContent = `${visitedCount}/${items.length}`;
+
+  if (currentAct === 4 && finaleState.completed) {
+    objectiveCounter.textContent = `${visitedCount}/${items.length} (Đã hoàn thành)`;
+  } else {
+    objectiveCounter.textContent = `${visitedCount}/${items.length}`;
+  }
+
   objectiveList.innerHTML = '';
 
   for (const it of items) {
@@ -548,6 +558,22 @@ function updateObjectiveChecklist() {
       ${hintHtml}
     `;
     objectiveList.appendChild(li);
+  }
+
+  if (currentAct === 4) {
+    const liFinale = document.createElement('li');
+    liFinale.className = `objective-item ${finaleState.completed ? 'completed' : 'pending'}`;
+    const statusText = finaleState.completed ? '[✓]' : '[ ]';
+    liFinale.innerHTML = `
+      <span class="objective-status">${statusText}</span>
+      <span class="objective-name">Dâng nén tâm hương tri ân</span>
+      ${
+        finaleState.completed
+          ? '<span class="objective-hint" style="color: #4ade80;">✓ Hoàn thành</span>'
+          : '<span class="objective-hint">Đỉnh đồi (x=2560)</span>'
+      }
+    `;
+    objectiveList.appendChild(liFinale);
   }
 }
 
@@ -1386,7 +1412,19 @@ window.addEventListener('pointercancel', (e) => {
   }
 });
 
-btnReplay.addEventListener('click', replayFromBeginning);
+if (btnReplay) {
+  btnReplay.addEventListener('click', replayFromBeginning);
+}
+
+// Collapsible Objective Checklist Toggle on Mobile
+if (objectiveChecklist) {
+  objectiveChecklist.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isMobileMode || window.innerHeight <= 540 || window.innerWidth <= 900) {
+      objectiveChecklist.classList.toggle('expanded');
+    }
+  });
+}
 
 // Direct Canvas Touch:
 // 1) At Act 4 Monument -> Touch & Hold directly on Incense Altar / Monument charges incense
@@ -1395,7 +1433,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!gameStarted || isPortraitPaused) return;
   sound.init();
 
-  if (modalState.open || transitionState.active || finaleState.overlayShown) {
+  if (modalState.open || transitionState.active) {
     return;
   }
 
@@ -1500,14 +1538,6 @@ window.addEventListener('keydown', (e) => {
         closeStoryModal();
       }
       return;
-    }
-    return;
-  }
-
-  if (finaleState.overlayShown) {
-    if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
-      e.preventDefault();
-      replayFromBeginning();
     }
     return;
   }
@@ -2046,8 +2076,7 @@ function updateActionGuidanceBanner() {
     !gameStarted ||
     isPortraitPaused ||
     transitionState.active ||
-    modalState.open ||
-    finaleState.overlayShown
+    modalState.open
   ) {
     hideActionBanner();
     return;
@@ -2067,9 +2096,12 @@ function updateActionGuidanceBanner() {
   // 1. Nearby Historical Interactable Document
   if (nearbyInteractable) {
     const actionVerb = nearbyInteractable.visited ? 'đọc lại' : 'khám phá';
+    const docName = isTouch
+      ? (nearbyInteractable.checklistLabel || nearbyInteractable.title)
+      : nearbyInteractable.title;
     setActionBanner(
       '📜',
-      `Nhấn ${interactKey} để ${actionVerb}: <strong>${nearbyInteractable.title}</strong>`
+      `Nhấn ${interactKey} để ${actionVerb}: <strong>${docName}</strong>`
     );
     return;
   }
@@ -2078,14 +2110,19 @@ function updateActionGuidanceBanner() {
   if (currentAct === 1) {
     if (player.x >= 2080 && player.x <= 2520 && !completedQtes.has('qte_1a')) {
       if (player.x >= 2320 && player.x <= 2385) {
-        setActionBanner('🔨', `Nhấn ${attackKey} liên tục để dùng búa tạ phá tung cửa kho thóc Nhật!`);
+        setActionBanner('🔨', `Nhấn ${attackKey} liên tục phá tung cửa kho thóc Nhật!`);
       } else {
-        setActionBanner('🌾', `Tiến sát Cửa kho thóc, nhấn ${attackKey} phá khóa lấy thóc gạo; né đèn pha lính gác!`);
+        setActionBanner(
+          '🌾',
+          isTouch
+            ? `Tiến sát Kho thóc, nhấn ${attackKey} phá khóa; né đèn pha!`
+            : `Tiến sát Cửa kho thóc, nhấn ${attackKey} phá khóa lấy thóc gạo; né đèn pha lính gác!`
+        );
       }
       return;
     }
     if (player.x >= 2620 && player.x <= 2880 && !completedQtes.has('qte_1b')) {
-      setActionBanner('⭐', `Bước lên Lễ đài Độc lập, nhấn ${attackKey} để giương cao lá cờ Tổ quốc!`);
+      setActionBanner('⭐', `Bước lên Lễ đài Độc lập, nhấn ${attackKey} giương cao cờ đỏ sao vàng!`);
       return;
     }
   }
@@ -2096,18 +2133,20 @@ function updateActionGuidanceBanner() {
       if (charge && charge.timer > 0) {
         setActionBanner(
           '⚠️',
-          `BỘC PHÁ ĐANG ĐẾM NGƯỢC (${charge.timer.toFixed(1)}s)! LÙI GẤP về Hào số 3 và ${crouchKey} cúi thấp né nổ!`,
+          `BỘC PHÁ ĐẾM NGƯỢC (${charge.timer.toFixed(1)}s)! LÙI GẤP về Hào số 3 và ${crouchKey} cúi thấp!`,
           true
         );
       } else if (player.x >= 2440 && player.x <= 2600) {
         setActionBanner(
           '💣',
-          `Đến Lô cốt nhấn ${attackKey} để gài khối bộc phá, sau đó LÙI GẤP về Hào số 3!`
+          `Đến Lô cốt nhấn ${attackKey} gài bộc phá, sau đó LÙI GẤP về Hào số 3!`
         );
       } else {
         setActionBanner(
           '🛡️',
-          `Ẩn nấp trong 3 chiến hào, nhấn ${crouchKey} cúi rạp né làn đạn đại liên Pháp!`
+          isTouch
+            ? `Ẩn nấp trong 3 chiến hào, ${crouchKey} cúi rạp né làn đạn Pháp!`
+            : `Ẩn nấp trong 3 chiến hào, nhấn ${crouchKey} cúi rạp né làn đạn đại liên Pháp!`
         );
       }
       return;
@@ -2118,25 +2157,47 @@ function updateActionGuidanceBanner() {
     if (player.x >= 1540 && player.x <= 1920 && !completedQtes.has('qte_3a')) {
       setActionBanner(
         '✈️',
-        `Đến Ụ pháo 37mm nhấn ${attackKey} bắn hạ tiêm kích Mỹ; đổi ụ pháo ngay khi có còi báo bom!`
+        isTouch
+          ? `Đến Ụ pháo nhấn ${attackKey} bắn tiêm kích Mỹ; đổi ụ khi có còi bom!`
+          : `Đến Ụ pháo 37mm nhấn ${attackKey} bắn hạ tiêm kích Mỹ; đổi ụ pháo ngay khi có còi báo bom!`
       );
       return;
     }
     if (player.x >= 2360 && player.x <= 2680 && !completedQtes.has('qte_3b')) {
       setActionBanner(
         '⚔️',
-        `Áp sát Cổng Dinh Độc Lập, nhấn ${attackKey} bắn AK yểm trợ Xe tăng 390; nhảy hoặc cúi né đạn!`
+        isTouch
+          ? `Áp sát Cổng Dinh, nhấn ${attackKey} bắn yểm trợ Xe tăng 390; né đạn!`
+          : `Áp sát Cổng Dinh Độc Lập, nhấn ${attackKey} bắn AK yểm trợ Xe tăng 390; nhảy hoặc cúi né đạn!`
       );
       return;
     }
   }
 
   if (currentAct === 4) {
-    if (player.x >= 2420 && player.x <= 2700 && !finaleState.completed) {
+    if (!finaleState.completed && player.x >= 2420 && player.x <= 2700) {
       const holdPrompt = isTouch
-        ? 'Chạm và GIỮ Lư hương đồng trong 2.5 giây'
-        : `GIỮ phím ${attackKey} trong 2.5 giây`;
-      setActionBanner('🕯️', `Bước lên 5 bậc tam cấp, ${holdPrompt} để kính cẩn thắp nén tâm hương!`);
+        ? `Chạm & GIỮ Lư hương (hoặc ${attackKey}) 2.5s`
+        : `GIỮ phím ${attackKey} 2.5s`;
+      setActionBanner('🕯️', `Bước lên tam cấp, ${holdPrompt} để thắp nén tâm hương!`);
+      return;
+    }
+    if (finaleState.completed) {
+      if (Math.abs(player.x - FINALE_EVENT.x) <= FINALE_EVENT.triggerRadius + 40) {
+        setActionBanner(
+          '🕊️',
+          isTouch
+            ? '<strong>ĐÀI TƯỞNG NIỆM:</strong> Nén tâm hương đã thắp — Đời đời ghi ơn Liệt sĩ!'
+            : '<strong>ĐÀI TƯỞNG NIỆM LIỆT SĨ:</strong> Nén tâm hương đã thắp — Đời đời ghi nhớ công ơn các Anh hùng Liệt sĩ!'
+        );
+      } else {
+        setActionBanner(
+          '✨',
+          isTouch
+            ? '<strong>HÀNH TRÌNH HOÀN THÀNH:</strong> Đã thắp nén tâm hương tri ân Liệt sĩ!'
+            : '<strong>HÀNH TRÌNH HOÀN THÀNH:</strong> Đã thắp nén tâm hương tri ân — Đời đời ghi nhớ công ơn các Anh hùng Liệt sĩ!'
+        );
+      }
       return;
     }
   }
@@ -2193,11 +2254,11 @@ function gameLoop(now) {
     nearbyObstacleHint = null;
     updateCinematicTransition(rawDt);
   } else {
+    const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
     canControl =
       gameStarted &&
       !modalState.open &&
-      !finaleState.overlayShown &&
-      !finaleState.completed;
+      !isCeremonyBowing;
 
     if (canControl) {
       updatePlatformerPhysics(rawDt);
@@ -2360,6 +2421,11 @@ function gameLoop(now) {
             sound.playIncenseComplete();
             vfx.triggerFlash(0.62, '#fef9c3', 1.2);
             vfx.spawnCelebrationBurst(altarX, altarTopY - 12, 48);
+            updateObjectiveChecklist();
+            showTemporaryCaption(
+              'Đã hoàn thành toàn bộ hành trình lịch sử! Đời đời nhớ ơn các Anh hùng Liệt sĩ.',
+              6000
+            );
           }
         } else {
           if (player.pose === 'bow_incense') player.pose = null;
@@ -2377,19 +2443,23 @@ function gameLoop(now) {
     } else {
       const altarX = FINALE_EVENT.x - 58;
       const altarTopY = getGroundY(FINALE_EVENT.x) - 78;
-      player.pose = 'bow_incense';
-      player.facing = 1;
-      companionsState.sharedPose = 'bow_incense';
-      companionsState.fatherFacing = 1;
-      companionsState.elderFacing = 1;
-      vfx.spawnIncenseSmoke(altarX, altarTopY, 1.15);
+      vfx.spawnIncenseSmoke(altarX, altarTopY, 0.45);
       finaleState.spiritsAlpha = Math.min(1, finaleState.spiritsAlpha + rawDt * 0.72);
       finaleState.postTimer += rawDt;
 
-      if (!finaleState.overlayShown && finaleState.postTimer >= FINALE_EVENT.spiritViewingDelay) {
-        finaleState.overlayShown = true;
-        finaleOverlay.classList.remove('hidden');
-        syncTouchControlsVisibility();
+      if (finaleState.postTimer < 2.5) {
+        player.pose = 'bow_incense';
+        player.facing = 1;
+        companionsState.sharedPose = 'bow_incense';
+        companionsState.fatherFacing = 1;
+        companionsState.elderFacing = 1;
+      } else {
+        if (player.pose === 'bow_incense') {
+          player.pose = null;
+        }
+        if (companionsState.sharedPose === 'bow_incense') {
+          companionsState.sharedPose = null;
+        }
       }
     }
   } else {

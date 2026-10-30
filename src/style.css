@@ -772,41 +772,85 @@ kbd {
 /* ==================== MONUMENT INCENSE HOLD HUD ==================== */
 .incense-hud {
   position: fixed;
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 33;
-  width: min(440px, calc(100vw - 260px));
-  min-width: 270px;
+  width: min(340px, calc(100vw - 220px));
+  min-width: 200px;
+  pointer-events: auto;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.incense-hud.hidden {
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
 }
 
 .incense-card {
-  padding: 14px 20px;
+  padding: 8px 14px;
   border-radius: 12px;
-  background: rgba(10, 15, 24, 0.84);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(253, 230, 138, 0.32);
-  text-align: center;
+  background: rgba(10, 16, 26, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 16px rgba(245, 158, 11, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   touch-action: none;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.incense-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.incense-icon-spark {
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 #incense-prompt {
-  font-family: var(--font-serif);
-  font-size: 0.95rem;
-  color: #ffffff;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fef3c7;
+  letter-spacing: 0.02em;
+  margin: 0;
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.incense-percent-pill {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 1px 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .incense-bar-outer {
   width: 100%;
-  height: 7px;
+  height: 6px;
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.22);
   overflow: hidden;
 }
 
@@ -814,7 +858,32 @@ kbd {
   width: 0%;
   height: 100%;
   background: linear-gradient(90deg, #f59e0b, #fef08a);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
   transition: width 0.05s linear;
+}
+
+.incense-hold-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e2e8f0;
+}
+
+.incense-hold-btn.holding {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: rgba(251, 191, 36, 0.65);
+  color: #fef08a;
+}
+
+.incense-icon-svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ==================== STORY MODAL ==================== */
@@ -1130,34 +1199,65 @@ kbd {
   }
 }
 
-@media (max-height: 480px) {
+@media screen and (max-height: 540px), screen and (max-width: 900px) and (orientation: landscape) {
   .top-context-hud {
-    top: 10px;
+    top: calc(5px + env(safe-area-inset-top, 0px));
+    max-width: calc(100vw - 230px);
+    width: auto;
   }
 
   .context-meta {
-    padding: 4px 12px;
-    font-size: 0.75rem;
+    padding: 3px 10px;
+    font-size: 0.68rem;
+    gap: 6px;
+  }
+
+  .top-context-hud.docked .context-meta {
+    transform: scale(0.85);
+    opacity: 0.6;
   }
 
   .context-action-banner {
-    transform: scale(0.86);
-    margin-top: 4px;
-    padding: 4px 12px;
-    font-size: 0.74rem;
+    transform: none;
+    margin-top: 3px;
+    padding: 3px 10px;
+    font-size: 0.66rem;
+    line-height: 1.25;
+    gap: 5px;
+    max-width: 100%;
+    border-radius: 999px;
+  }
+
+  .action-banner-icon {
+    font-size: 0.76rem;
+  }
+
+  .action-banner-text {
+    white-space: normal;
+    text-align: center;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .action-key-pill {
+    padding: 1px 4px;
+    font-size: 0.60rem;
   }
 
   .context-title-wrap {
-    margin-top: 7px;
+    margin-top: 5px;
   }
 
   .context-title {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
   }
 
   .context-subtitle {
-    margin-top: 3px;
-    font-size: 0.75rem;
+    margin-top: 2px;
+    font-size: 0.70rem;
   }
 
   .cinematic-caption {
@@ -1209,18 +1309,38 @@ kbd {
     font-size: 0.64rem;
   }
 
-  /* Compact Incense HUD */
+  /* Ultra-sleek Incense HUD on Mobile: Height ~22px, never covers character or altar */
   .incense-hud {
     bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+    width: min(210px, calc(100vw - 220px));
+    min-width: 160px;
   }
 
   .incense-card {
-    padding: 9px 14px;
-    gap: 6px;
+    padding: 4px 8px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+
+  .incense-icon-spark {
+    font-size: 0.72rem;
   }
 
   #incense-prompt {
-    font-size: 0.82rem;
+    font-size: 0.64rem;
+  }
+
+  .incense-percent-pill {
+    font-size: 0.60rem;
+    padding: 0 4px;
+  }
+
+  .incense-bar-outer {
+    height: 4px;
+  }
+
+  .incense-hold-btn {
+    display: none !important;
   }
 
   /* Compact Story, Intro & Finale Cards so they never overflow 350px-450px screens */
@@ -1351,7 +1471,11 @@ kbd {
   max-width: 280px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease, max-width 0.25s ease, padding 0.25s ease;
+}
+
+.objective-toggle-arrow {
+  display: none;
 }
 
 .objective-header {
@@ -1591,30 +1715,118 @@ kbd {
   transition: height 0.08s ease;
 }
 
-/* Mobile Landscape & Compact Height Adjustments */
-@media screen and (max-height: 480px) {
+/* Mobile Landscape & Compact Height Adjustments for Checklist, Minimap & VOV */
+@media screen and (max-height: 540px), screen and (max-width: 900px) and (orientation: landscape) {
+  /* Compact Collapsible Objective Checklist: Default shows sleek pill (📜 0/3 ▾) */
   .objective-checklist {
-    top: calc(8px + env(safe-area-inset-top, 0px));
-    left: calc(10px + env(safe-area-inset-left, 0px));
-    padding: 5px 8px;
-    max-width: 220px;
-    transform: scale(0.88);
-    transform-origin: top left;
+    top: calc(6px + env(safe-area-inset-top, 0px));
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    padding: 3px 7px;
+    max-width: 95px;
+    border-radius: 7px;
+    transform: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
+  .objective-header {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    font-size: 0.58rem;
+    gap: 4px;
+  }
+
+  .objective-title {
+    display: none;
+  }
+
+  .objective-counter {
+    font-size: 0.60rem;
+    padding: 0 4px;
+  }
+
+  .objective-toggle-arrow {
+    display: inline-block;
+    font-size: 0.52rem;
+    color: #94a3b8;
+    transition: transform 0.2s ease;
+  }
+
+  .objective-checklist .objective-list {
+    display: none;
+  }
+
+  .objective-checklist.expanded {
+    max-width: 190px;
+    padding: 5px 8px;
+    background: rgba(8, 13, 22, 0.95);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  }
+
+  .objective-checklist.expanded .objective-header {
+    margin-bottom: 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+  }
+
+  .objective-checklist.expanded .objective-title {
+    display: inline;
+  }
+
+  .objective-checklist.expanded .objective-toggle-arrow {
+    transform: rotate(180deg);
+  }
+
+  .objective-checklist.expanded .objective-list {
+    display: flex;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+
+  .objective-checklist.expanded .objective-item {
+    font-size: 0.58rem;
+    line-height: 1.25;
+    gap: 4px;
+  }
+
+  /* Compact Mini-map: Downscaled to 110px × 16px, hides bulky legend */
   .minimap-hud {
-    top: calc(8px + env(safe-area-inset-top, 0px));
-    right: calc(10px + env(safe-area-inset-right, 0px));
-    padding: 4px 8px;
-    transform: scale(0.88);
-    transform-origin: top right;
+    top: calc(6px + env(safe-area-inset-top, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    padding: 3px 6px;
+    border-radius: 7px;
+    transform: none;
+  }
+
+  .minimap-frame {
+    width: 110px;
+    height: 16px;
+  }
+
+  #minimap-canvas {
+    width: 110px;
+    height: 16px;
+  }
+
+  .minimap-labels {
+    margin-top: 1px;
+    font-size: 0.50rem;
+  }
+
+  #minimap-act-label {
+    font-size: 0.52rem;
+  }
+
+  .minimap-legend {
+    display: none !important;
   }
 
   .vov-broadcast-hud {
-    top: calc(64px + env(safe-area-inset-top, 0px));
-    right: calc(10px + env(safe-area-inset-right, 0px));
-    padding: 6px 10px;
-    transform: scale(0.85);
-    transform-origin: top right;
+    top: calc(34px + env(safe-area-inset-top, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    padding: 3px 6px;
+    transform: none;
   }
 }
