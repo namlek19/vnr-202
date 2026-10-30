@@ -31,6 +31,9 @@ const contextPeriod = document.getElementById('context-period');
 const contextLocation = document.getElementById('context-location');
 const contextTitle = document.getElementById('context-title');
 const contextSubtitle = document.getElementById('context-subtitle');
+const contextActionBanner = document.getElementById('context-action-banner');
+const actionBannerIcon = document.getElementById('action-banner-icon');
+const actionBannerText = document.getElementById('action-banner-text');
 
 const cinematicCaption = document.getElementById('cinematic-caption');
 
@@ -1910,55 +1913,247 @@ function updatePlatformerPhysics(rawDt) {
 }
 
 /**
- * Tự động tính toán mức độ phóng to của Camera khi nhân vật bước vào các không gian đặc biệt:
+ * Tự động tính toán mức độ phóng to của Camera khi nhân vật đến gần mốc nhiệm vụ chưa làm hoặc vào các không gian đặc biệt:
+ * - Đến gần mốc/văn kiện CHƯA làm -> zoom sớm để thu hút sự chú ý
  * - Căn hầm bí mật (Màn 1): zoom 1.22
  * - Hang Pác Bó (Màn 1): zoom 1.18
- * - Nhà phố cổ Hà Nội 2 tầng (Màn 2): zoom 1.18
+ * - Kho thóc Nhật (Màn 1): zoom 1.18
+ * - Chiến lũy & Nhà phố cổ Hà Nội (Màn 2): zoom 1.18
  * - Giao thông hào Điện Biên Phủ (Màn 2): zoom 1.20
  * - Hầm chỉ huy chữ A Trường Sơn (Màn 3): zoom 1.22
+ * - Ụ pháo 37mm & Dinh Độc Lập (Màn 3): zoom 1.18 - 1.20
  * - Đài tưởng niệm dâng hương (Màn 4): zoom 1.16
- * - Khi ra khỏi không gian đặc biệt: trả mượt mà về 1.0
+ * - Khi ra khỏi/hoàn thành: trả mượt mà về 1.0
  */
 function computeTargetCameraZoom() {
   if (!gameStarted || isPortraitPaused || transitionState.active) {
     return 1.0;
   }
 
-  // Act 1 Special Sub-rooms:
+  // Act 1 Special Sub-rooms & Milestones:
   if (currentAct === 1) {
-    if (player.x >= 440 && player.x <= 760 && player.dy > 35) {
+    const item1 = interactablesState.find((it) => it.id === 'act1_item1');
+    const item2 = interactablesState.find((it) => it.id === 'act1_item2');
+    const qte1aDone = completedQtes.has('qte_1a');
+
+    // 1. Căn hầm bí mật (x = 520, hầm 450..750, dy = +180)
+    if ((item1 && !item1.visited && player.x >= 360 && player.x <= 780) ||
+        (player.x >= 440 && player.x <= 760 && player.dy > 35)) {
       return 1.22;
     }
-    if (player.x >= 1220 && player.x <= 1560) {
+
+    // 2. Hang Pác Bó (x = 1365, vách đá 1200..1560)
+    if ((item2 && !item2.visited && player.x >= 1120 && player.x <= 1600) ||
+        (player.x >= 1220 && player.x <= 1560)) {
+      return 1.18;
+    }
+
+    // 3. Phá kho thóc Nhật (x = 2240..2500)
+    if (!qte1aDone && player.x >= 2050 && player.x <= 2520) {
       return 1.18;
     }
   }
 
   // Act 2 Special Locations:
   if (currentAct === 2) {
-    if (player.x >= 1050 && player.x <= 1360) {
+    const item1 = interactablesState.find((it) => it.id === 'act2_item1');
+    const item2 = interactablesState.find((it) => it.id === 'act2_item2');
+    const qte2bDone = completedQtes.has('qte_2b');
+
+    // 1. Chiến lũy Bắc Bộ Phủ (x = 520)
+    if (item1 && !item1.visited && player.x >= 380 && player.x <= 680) {
+      return 1.16;
+    }
+
+    // 2. Nhà phố cổ Hà Nội 2 tầng (x = 1050..1360, item2 x = 1220)
+    if ((item2 && !item2.visited && player.x >= 960 && player.x <= 1400) ||
+        (player.x >= 1050 && player.x <= 1360)) {
       return 1.18;
     }
-    if (player.x >= 2085 && player.x <= 2530 && (player.dy > 18 || player.isCrouching)) {
+
+    // 3. Chiến trường Điện Biên Phủ (x = 2040..2650)
+    if ((!qte2bDone && player.x >= 1960 && player.x <= 2650) ||
+        (player.x >= 2085 && player.x <= 2530 && (player.dy > 18 || player.isCrouching))) {
       return 1.20;
     }
   }
 
   // Act 3 Special Locations:
   if (currentAct === 3) {
-    if (player.x >= 440 && player.x <= 760 && player.dy > 35) {
+    const item1 = interactablesState.find((it) => it.id === 'act3_item1');
+    const item2 = interactablesState.find((it) => it.id === 'act3_item2');
+    const qte3aDone = completedQtes.has('qte_3a');
+    const qte3bDone = completedQtes.has('qte_3b');
+
+    // 1. Hầm chỉ huy chữ A Trường Sơn (x = 520, hầm 450..750, dy = +170)
+    if ((item1 && !item1.visited && player.x >= 360 && player.x <= 780) ||
+        (player.x >= 440 && player.x <= 760 && player.dy > 35)) {
       return 1.22;
+    }
+
+    // 2. Binh trạm giao liên (x = 1260)
+    if (item2 && !item2.visited && player.x >= 1120 && player.x <= 1400) {
+      return 1.16;
+    }
+
+    // 3. Pháo cao xạ 37mm (x = 1600..1880)
+    if (!qte3aDone && player.x >= 1500 && player.x <= 1920) {
+      return 1.18;
+    }
+
+    // 4. Dinh Độc Lập / Cổng sắt (x = 2360..2700)
+    if (!qte3bDone && player.x >= 2250 && player.x <= 2750) {
+      return 1.20;
     }
   }
 
   // Act 4 Special Locations:
   if (currentAct === 4) {
-    if (player.x >= 2440 && player.x <= 2680) {
+    const unvisitedNear = interactablesState.some(
+      (it) => it.act === 4 && !it.visited && Math.abs(player.x - it.x) < 170
+    );
+    if (unvisitedNear) {
+      return 1.16;
+    }
+    if (player.x >= 2380 && player.x <= 2680) {
       return 1.16;
     }
   }
 
   return 1.0;
+}
+
+function setActionBanner(icon, htmlContent, isDanger = false) {
+  if (!contextActionBanner || !actionBannerIcon || !actionBannerText) return;
+  actionBannerIcon.textContent = icon;
+  actionBannerText.innerHTML = htmlContent;
+  contextActionBanner.classList.remove('hidden');
+  contextActionBanner.classList.toggle('action-key-danger', isDanger);
+}
+
+function hideActionBanner() {
+  if (contextActionBanner && !contextActionBanner.classList.contains('hidden')) {
+    contextActionBanner.classList.add('hidden');
+  }
+}
+
+/**
+ * Cập nhật thanh hướng dẫn hành động & chiến đấu trực tiếp (Contextual Action Banner)
+ * đặt trang trọng ngay dưới Thời gian & Địa điểm ở Top HUD.
+ */
+function updateActionGuidanceBanner() {
+  if (
+    !gameStarted ||
+    isPortraitPaused ||
+    transitionState.active ||
+    modalState.open ||
+    finaleState.overlayShown
+  ) {
+    hideActionBanner();
+    return;
+  }
+
+  const isTouch = isMobileMode;
+  const attackKey = isTouch
+    ? '<span class="action-key-pill">[Tấn công]</span>'
+    : '<span class="action-key-pill">[F]</span>';
+  const interactKey = isTouch
+    ? '<span class="action-key-pill">[Chạm]</span>'
+    : '<span class="action-key-pill">[E]</span>';
+  const crouchKey = isTouch
+    ? '<span class="action-key-pill">[Gạt cần xuống]</span>'
+    : '<span class="action-key-pill">[S / ↓]</span>';
+
+  // 1. Nearby Historical Interactable Document
+  if (nearbyInteractable) {
+    const actionVerb = nearbyInteractable.visited ? 'đọc lại' : 'khám phá';
+    setActionBanner(
+      '📜',
+      `Nhấn ${interactKey} để ${actionVerb}: <strong>${nearbyInteractable.title}</strong>`
+    );
+    return;
+  }
+
+  // 2. Combat & Tactical Zones
+  if (currentAct === 1) {
+    if (player.x >= 2080 && player.x <= 2520 && !completedQtes.has('qte_1a')) {
+      if (player.x >= 2320 && player.x <= 2385) {
+        setActionBanner('🔨', `Nhấn ${attackKey} liên tục để dùng búa tạ phá tung cửa kho thóc Nhật!`);
+      } else {
+        setActionBanner('🌾', `Tiến sát Cửa kho thóc, nhấn ${attackKey} phá khóa lấy thóc gạo; né đèn pha lính gác!`);
+      }
+      return;
+    }
+    if (player.x >= 2620 && player.x <= 2880 && !completedQtes.has('qte_1b')) {
+      setActionBanner('⭐', `Bước lên Lễ đài Độc lập, nhấn ${attackKey} để giương cao lá cờ Tổ quốc!`);
+      return;
+    }
+  }
+
+  if (currentAct === 2) {
+    if (player.x >= 2040 && player.x <= 2650 && !completedQtes.has('qte_2b')) {
+      const charge = combatSystem.act2.plantedCharge;
+      if (charge && charge.timer > 0) {
+        setActionBanner(
+          '⚠️',
+          `BỘC PHÁ ĐANG ĐẾM NGƯỢC (${charge.timer.toFixed(1)}s)! LÙI GẤP về Hào số 3 và ${crouchKey} cúi thấp né nổ!`,
+          true
+        );
+      } else if (player.x >= 2440 && player.x <= 2600) {
+        setActionBanner(
+          '💣',
+          `Đến Lô cốt nhấn ${attackKey} để gài khối bộc phá, sau đó LÙI GẤP về Hào số 3!`
+        );
+      } else {
+        setActionBanner(
+          '🛡️',
+          `Ẩn nấp trong 3 chiến hào, nhấn ${crouchKey} cúi rạp né làn đạn đại liên Pháp!`
+        );
+      }
+      return;
+    }
+  }
+
+  if (currentAct === 3) {
+    if (player.x >= 1540 && player.x <= 1920 && !completedQtes.has('qte_3a')) {
+      setActionBanner(
+        '✈️',
+        `Đến Ụ pháo 37mm nhấn ${attackKey} bắn hạ tiêm kích Mỹ; đổi ụ pháo ngay khi có còi báo bom!`
+      );
+      return;
+    }
+    if (player.x >= 2360 && player.x <= 2680 && !completedQtes.has('qte_3b')) {
+      setActionBanner(
+        '⚔️',
+        `Áp sát Cổng Dinh Độc Lập, nhấn ${attackKey} bắn AK yểm trợ Xe tăng 390; nhảy hoặc cúi né đạn!`
+      );
+      return;
+    }
+  }
+
+  if (currentAct === 4) {
+    if (player.x >= 2420 && player.x <= 2700 && !finaleState.completed) {
+      const holdPrompt = isTouch
+        ? 'Chạm và GIỮ Lư hương đồng trong 2.5 giây'
+        : `GIỮ phím ${attackKey} trong 2.5 giây`;
+      setActionBanner('🕯️', `Bước lên 5 bậc tam cấp, ${holdPrompt} để kính cẩn thắp nén tâm hương!`);
+      return;
+    }
+  }
+
+  // 3. Proximity to upcoming unvisited document
+  const upcomingUnvisited = interactablesState.find(
+    (it) => it.act === currentAct && !it.visited && Math.abs(player.x - it.x) < 280
+  );
+  if (upcomingUnvisited) {
+    setActionBanner(
+      '📍',
+      `Phía trước có cột mốc: <strong>"${upcomingUnvisited.checklistLabel || upcomingUnvisited.title}"</strong>. Hãy tiếp cận!`
+    );
+    return;
+  }
+
+  hideActionBanner();
 }
 
 // ==================== MAIN 60FPS GAME LOOP ====================
@@ -2247,10 +2442,11 @@ function gameLoop(now) {
     vfx
   );
 
-  // Render Horizontal Mini-map & VOV Broadcast Waveform
+  // Render Horizontal Mini-map, VOV Broadcast Waveform & Action Guidance Banner
   if (gameStarted && !isPortraitPaused) {
     renderMinimap();
     updateVovBroadcastHud();
+    updateActionGuidanceBanner();
   }
 
   requestAnimationFrame(gameLoop);

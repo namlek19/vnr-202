@@ -972,25 +972,64 @@ export class InWorldCombatSystem {
         // Trench 3: [2444, 2504], center 2474, dy = 52
         forceCrouch = true;
 
+        const trenches = [
+          { id: 1, x1: 2108, x2: 2182, center: 2145 },
+          { id: 2, x1: 2284, x2: 2358, center: 2321 },
+          { id: 3, x1: 2444, x2: 2504, center: 2474 },
+        ];
+
+        // Check if any trench is under incoming bomb danger or ticking satchel charge
+        const isTrenchInDanger = (trench) => {
+          const bombIncoming = this.fallingBombs.some(
+            (b) => Math.abs(b.targetX - trench.center) < 76
+          );
+          const chargeDanger =
+            trench.id === 3 &&
+            this.act2.plantedCharge &&
+            this.act2.plantedCharge.timer > 0;
+          return bombIncoming || chargeDanger;
+        };
+
+        let targetTrenchId = 1;
         if (player.x >= 2420) {
           // Player is at or attacking from Trench 3
-          if (i < 2) {
-            desiredX = 2452 + (i % 2) * 32; // In Trench 3
-          } else if (i < 4) {
-            desiredX = 2296 + (i % 2) * 32; // In Trench 2
-          } else {
-            desiredX = 2125 + (i % 2) * 32; // In Trench 1
-          }
+          targetTrenchId = i < 2 ? 3 : i < 4 ? 2 : 1;
         } else if (player.x >= 2240) {
           // Player is at Trench 2
-          if (i < 2) {
-            desiredX = 2296 + (i % 2) * 32; // In Trench 2
-          } else {
-            desiredX = 2125 + (i % 2) * 32; // In Trench 1
-          }
+          targetTrenchId = i < 2 ? 2 : 1;
         } else {
           // Player is at Trench 1
-          desiredX = 2115 + (i % 3) * 26; // In Trench 1
+          targetTrenchId = 1;
+        }
+
+        // BOMB & CHARGE DODGING: If target trench is under bomb attack, immediately dodge to an adjacent safe trench!
+        if (isTrenchInDanger(trenches[targetTrenchId - 1])) {
+          if (targetTrenchId === 3) {
+            targetTrenchId = !isTrenchInDanger(trenches[1]) ? 2 : 1;
+          } else if (targetTrenchId === 2) {
+            targetTrenchId = !isTrenchInDanger(trenches[0]) ? 1 : !isTrenchInDanger(trenches[2]) ? 3 : 1;
+          } else if (targetTrenchId === 1) {
+            targetTrenchId = !isTrenchInDanger(trenches[1]) ? 2 : 3;
+          }
+
+          // If follower is currently in the dangerous trench, initiate an urgent leap out!
+          const currentTrench = trenches.find((tr) => f.x >= tr.x1 - 12 && f.x <= tr.x2 + 12);
+          if (currentTrench && isTrenchInDanger(currentTrench) && f.onGround) {
+            f.vy = -420;
+            f.onGround = false;
+            if (this.clock - (f.lastDodgeTime || 0) > 3.0) {
+              f.lastDodgeTime = this.clock;
+              this.setHeadNotice('Bom rơi vào hào! Cơ động nhảy sang hào bên cạnh ngay!', 'warn', 1.6);
+            }
+          }
+        }
+
+        if (targetTrenchId === 3) {
+          desiredX = 2452 + (i % 2) * 32; // In Trench 3
+        } else if (targetTrenchId === 2) {
+          desiredX = 2296 + (i % 2) * 32; // In Trench 2
+        } else {
+          desiredX = 2118 + (i % 3) * 26; // In Trench 1
         }
         targetFloorY = baseGroundY + 52;
       } else if (inAct1Cellar) {

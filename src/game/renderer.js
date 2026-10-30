@@ -800,14 +800,87 @@ export class WorldRenderer {
       ctx.save();
       ctx.translate(sx, itemY);
 
-      const subtleAlpha = isNear ? 0.38 : isSeeking ? 0.28 : 0.16;
-      const g = ctx.createRadialGradient(0, -24, 2, 0, -24, isNear ? 56 : 38);
-      g.addColorStop(0, `rgba(253, 230, 138, ${subtleAlpha})`);
-      g.addColorStop(1, 'rgba(253, 230, 138, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(0, -24, isNear ? 56 : 38, 0, Math.PI * 2);
-      ctx.fill();
+      const isUnvisited = !item.visited;
+
+      if (isUnvisited) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time * 3.6);
+        // Vertical golden light pillar
+        const beamGrad = ctx.createLinearGradient(0, -96, 0, 0);
+        beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0)');
+        beamGrad.addColorStop(0.5, `rgba(253, 224, 71, ${0.16 + pulse * 0.16})`);
+        beamGrad.addColorStop(1, `rgba(245, 158, 11, ${0.32 + pulse * 0.22})`);
+        ctx.fillStyle = beamGrad;
+        ctx.fillRect(-14, -92, 28, 92);
+
+        // Ground golden expanding ripple ring
+        const ringGrad = (this.time * 1.4) % 1;
+        ctx.save();
+        ctx.strokeStyle = `rgba(253, 224, 71, ${(1 - ringGrad) * 0.72})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12 + ringGrad * 26, 4 + ringGrad * 8, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // Radial golden aura
+        const auraRadius = (isNear ? 64 : 46) + pulse * 12;
+        const g = ctx.createRadialGradient(0, -24, 2, 0, -24, auraRadius);
+        g.addColorStop(0, `rgba(254, 243, 199, ${0.52 + pulse * 0.25})`);
+        g.addColorStop(0.45, `rgba(251, 191, 36, ${0.28 + pulse * 0.16})`);
+        g.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, -24, auraRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Animated Downward-Pointing Arrow (Mũi tên vàng phát sáng chỉ xuống vật phẩm)
+        const arrowY = -62 + Math.sin(this.time * 4.4) * 5;
+        ctx.save();
+        ctx.translate(0, arrowY);
+
+        const arrAura = ctx.createRadialGradient(0, 0, 1, 0, 0, 15);
+        arrAura.addColorStop(0, 'rgba(254, 240, 138, 0.92)');
+        arrAura.addColorStop(0.5, 'rgba(245, 158, 11, 0.45)');
+        arrAura.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = arrAura;
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Downward Arrow Shape (▼)
+        ctx.beginPath();
+        ctx.moveTo(-5, -8);
+        ctx.lineTo(5, -8);
+        ctx.lineTo(5, -2);
+        ctx.lineTo(8.5, -2);
+        ctx.lineTo(0, 8);
+        ctx.lineTo(-8.5, -2);
+        ctx.lineTo(-5, -2);
+        ctx.closePath();
+
+        const arrGrad = ctx.createLinearGradient(0, -8, 0, 8);
+        arrGrad.addColorStop(0, '#ffffff');
+        arrGrad.addColorStop(0.3, '#fef08a');
+        arrGrad.addColorStop(1, '#f59e0b');
+        ctx.fillStyle = arrGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        // Visited item subtle ambient glow
+        const subtleAlpha = isNear ? 0.35 : isSeeking ? 0.25 : 0.12;
+        const g = ctx.createRadialGradient(0, -24, 2, 0, -24, isNear ? 52 : 36);
+        g.addColorStop(0, `rgba(253, 230, 138, ${subtleAlpha})`);
+        g.addColorStop(1, 'rgba(253, 230, 138, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, -24, isNear ? 52 : 36, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       if (isSeeking) {
         const pulse = (this.time * 1.9) % 1;
@@ -820,18 +893,12 @@ export class WorldRenderer {
         ctx.restore();
       }
 
-      this.drawArtifactVector(ctx, item.iconType, isNear || isSeeking);
+      this.drawArtifactVector(ctx, item.iconType, isNear || isSeeking, isUnvisited);
 
-      if (isNear) {
+      if (isNear && isTouchMode) {
         const floatY = -74 + Math.sin(this.time * 3.2) * 3;
-        const label = isTouchMode
-          ? item.visited
-            ? '[Chạm] Xem lại'
-            : '[Chạm] Khám phá'
-          : item.visited
-          ? '[E] Xem lại'
-          : '[E] Khám phá';
-        this.drawMinimalFloatingHint(ctx, 0, floatY, label, isTouchMode);
+        const label = item.visited ? '[Chạm] Xem lại' : '[Chạm] Khám phá';
+        this.drawMinimalFloatingHint(ctx, 0, floatY, label, true);
       }
 
       ctx.restore();
@@ -884,11 +951,16 @@ export class WorldRenderer {
     ctx.restore();
   }
 
-  drawArtifactVector(ctx, iconType, isNear) {
+  drawArtifactVector(ctx, iconType, isNear, isUnvisited = false) {
     ctx.save();
     ctx.strokeStyle = isNear ? '#fef08a' : 'rgba(253, 230, 138, 0.78)';
     ctx.fillStyle = '#141312';
     ctx.lineWidth = 1.8;
+
+    if (isUnvisited) {
+      ctx.shadowColor = 'rgba(251, 191, 36, 0.85)';
+      ctx.shadowBlur = isNear ? 14 : 9;
+    }
 
     switch (iconType) {
       case 'manifesto_table': {

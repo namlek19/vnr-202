@@ -270,6 +270,78 @@ kbd {
   transform: translateY(-10px);
 }
 
+/* Contextual Mission & Action Guidance Banner */
+.context-action-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(10, 16, 26, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), 0 0 14px rgba(245, 158, 11, 0.22);
+  color: #fef3c7;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
+  animation: banner-glow 2.4s infinite alternate ease-in-out;
+}
+
+@keyframes banner-glow {
+  0% {
+    border-color: rgba(251, 191, 36, 0.35);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 10px rgba(245, 158, 11, 0.15);
+  }
+  100% {
+    border-color: rgba(253, 224, 71, 0.72);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 0 18px rgba(245, 158, 11, 0.36);
+  }
+}
+
+.context-action-banner.hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.action-banner-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.action-banner-text {
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.action-key-pill {
+  display: inline-block;
+  padding: 1px 7px;
+  margin: 0 3px;
+  background: rgba(245, 158, 11, 0.24);
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  color: #fef08a;
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.action-key-danger {
+  background: rgba(239, 68, 68, 0.28);
+  border-color: #ef4444;
+  color: #fecaca;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
 /* ==================== CINEMATIC SUBTITLE / GATE NOTICE ==================== */
 .cinematic-caption {
   position: fixed;
@@ -1066,6 +1138,13 @@ kbd {
   .context-meta {
     padding: 4px 12px;
     font-size: 0.75rem;
+  }
+
+  .context-action-banner {
+    transform: scale(0.86);
+    margin-top: 4px;
+    padding: 4px 12px;
+    font-size: 0.74rem;
   }
 
   .context-title-wrap {
