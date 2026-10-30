@@ -2521,43 +2521,86 @@ export function drawTruongSonSuspensionBridge(
 
 /**
  * Đoàn xe tải quân sự Trường Sơn ("Xe không kính" Zil-130 / Giải Phóng) vượt dốc núi xa
+ * Khớp 100% với độ cao, độ dốc và tốc độ Parallax (0.35x) của dãy núi MidFar Màn 3
  */
 export function drawTruongSonTruckConvoy(ctx, cameraX, width, baseGroundY, time, palette) {
   ctx.save();
 
-  // Sloped mountain supply road in mid-distance (world x ~ 420..1980)
-  for (let i = 0; i < 3; i++) {
-    const loopSpan = 1380;
-    const progress = ((time * 34 + i * 460) % loopSpan) / loopSpan;
-    const wx = 420 + progress * loopSpan;
-    const sx = wx - cameraX * 0.68;
-    if (sx < -120 || sx > width + 120) continue;
+  const parallax = 0.35;
+  const actOffset = 3 * 410; // 1230, khớp chính xác tọa độ dãy núi Secondary Ridgeline trong drawMidFarLayer
+  const roadStart = 280;
+  const roadEnd = 1780;
+  const loopSpan = roadEnd - roadStart;
 
-    // Road climbs steadily up the Trường Sơn mountain ridge
-    const climbY = baseGroundY - 92 - Math.sin(progress * Math.PI) * 52 - progress * 22;
-    const slopeAngle = -0.08 * Math.cos(progress * Math.PI);
+  // 1. Vết đường mòn quân sự uốn lượn men theo sống núi Trường Sơn
+  ctx.save();
+  ctx.strokeStyle = 'rgba(7, 20, 30, 0.65)';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  let firstRoadPoint = true;
+  for (let tx = roadStart; tx <= roadEnd; tx += 24) {
+    const tsx = tx - cameraX * parallax;
+    if (tsx < -60 || tsx > width + 60) continue;
+    const twx = tx + actOffset;
+    const twave = Math.sin(twx * 0.0062) * 34 + Math.cos(twx * 0.013) * 16;
+    const ty = baseGroundY - 54 - Math.abs(twave) + 1.8;
+    if (firstRoadPoint) {
+      ctx.moveTo(tsx, ty);
+      firstRoadPoint = false;
+    } else {
+      ctx.lineTo(tsx, ty);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // 2. Đoàn 3 xe tải quân sự vượt dốc núi
+  for (let i = 0; i < 3; i++) {
+    const progress = ((time * 26 + i * 500) % loopSpan) / loopSpan;
+    const truckCoordX = roadStart + progress * loopSpan;
+    const sx = truckCoordX - cameraX * parallax;
+
+    if (sx < -90 || sx > width + 90) continue;
+
+    // Làm mờ dần khi xuất phát ở sườn trái và khi tiến gần về cuối chặng đèo
+    const alpha = Math.min(1, Math.min(progress / 0.08, (1 - progress) / 0.08));
+    if (alpha <= 0.01) continue;
+
+    const wx = truckCoordX + actOffset;
+    const wave = Math.sin(wx * 0.0062) * 34 + Math.cos(wx * 0.013) * 16;
+    const mountainY = baseGroundY - 54 - Math.abs(wave);
+
+    // Tính chính xác góc nghiêng theo độ dốc bề mặt dãy núi
+    const wave1 = Math.sin((wx - 3) * 0.0062) * 34 + Math.cos((wx - 3) * 0.013) * 16;
+    const wave2 = Math.sin((wx + 3) * 0.0062) * 34 + Math.cos((wx + 3) * 0.013) * 16;
+    const y1 = baseGroundY - 54 - Math.abs(wave1);
+    const y2 = baseGroundY - 54 - Math.abs(wave2);
+    const slopeAngle = Math.atan2(y2 - y1, 6);
 
     ctx.save();
-    ctx.translate(sx, climbY);
+    ctx.globalAlpha = alpha;
+    // Điểm tiếp xúc đáy lốp ở Y = -1.5 -> đặt xe chính xác tại mountainY + 1.5
+    ctx.translate(sx, mountainY + 1.5);
     ctx.rotate(slopeAngle);
-    ctx.scale(0.68, 0.68);
+    ctx.scale(0.5, 0.5);
 
-    // Warm hooded headlight beam piercing Trường Sơn mist
-    const beam = ctx.createLinearGradient(34, -18, 108, -4);
-    beam.addColorStop(0, 'rgba(254, 240, 138, 0.36)');
+    // Vệt đèn pha vàng mờ xuyên màn sương Trường Sơn chiếu xuống mặt đường
+    const beam = ctx.createLinearGradient(34, -18, 96, -4);
+    beam.addColorStop(0, 'rgba(254, 240, 138, 0.38)');
     beam.addColorStop(1, 'rgba(254, 240, 138, 0)');
     ctx.fillStyle = beam;
     ctx.beginPath();
-    ctx.moveTo(34, -19);
-    ctx.lineTo(110, -28);
-    ctx.lineTo(110, 2);
+    ctx.moveTo(34, -17);
+    ctx.lineTo(98, -24);
+    ctx.lineTo(98, 3);
     ctx.closePath();
     ctx.fill();
 
-    // Covered canvas cargo bed (thùng bạt quân sự)
+    // Thùng xe bạt quân sự phủ kín
     ctx.fillStyle = palette.nearSil;
     fillRoundedRect(ctx, -44, -44, 52, 28, [8, 8, 2, 2]);
-    // Truck cab & engine hood ("Xe không kính")
+
+    // Đầu xe tải Zil-130 ("Xe không kính")
     ctx.beginPath();
     ctx.moveTo(8, -40);
     ctx.lineTo(22, -40);
@@ -2568,7 +2611,7 @@ export function drawTruongSonTruckConvoy(ctx, cameraX, width, baseGroundY, time,
     ctx.closePath();
     ctx.fill();
 
-    // Open windshield frame + camouflage branches tied on cab roof
+    // Khung kính chắn gió & cành lá ngụy trang trên nóc ca-bin
     ctx.fillStyle = 'rgba(167, 243, 208, 0.25)';
     ctx.fillRect(12, -37, 10, 9);
     ctx.strokeStyle = '#064e3b';
@@ -2580,7 +2623,7 @@ export function drawTruongSonTruckConvoy(ctx, cameraX, width, baseGroundY, time,
     ctx.lineTo(24, -49);
     ctx.stroke();
 
-    // 3 heavy truck tires
+    // 3 bánh xe tải quân sự bám chặt vào sống núi
     ctx.fillStyle = '#03080c';
     for (const wxWheel of [-32, -14, 26]) {
       ctx.beginPath();

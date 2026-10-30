@@ -362,8 +362,18 @@ function updateViewportAndDeviceMode() {
 
 window.addEventListener('resize', updateViewportAndDeviceMode);
 window.addEventListener('orientationchange', () => {
+  updateViewportAndDeviceMode();
   setTimeout(updateViewportAndDeviceMode, 60);
+  setTimeout(updateViewportAndDeviceMode, 200);
+  setTimeout(updateViewportAndDeviceMode, 400);
 });
+if (window.screen && window.screen.orientation) {
+  window.screen.orientation.addEventListener('change', () => {
+    updateViewportAndDeviceMode();
+    setTimeout(updateViewportAndDeviceMode, 60);
+    setTimeout(updateViewportAndDeviceMode, 200);
+  });
+}
 // Prevent accidental iOS Safari multi-finger pinch zoom
 document.addEventListener(
   'gesturestart',
@@ -1301,10 +1311,19 @@ btnTouchDrop.addEventListener('pointercancel', () => btnTouchDrop.classList.remo
 btnTouchDrop.addEventListener('pointerleave', () => btnTouchDrop.classList.remove('pressed'));
 
 // ==================== UI & DIRECT CANVAS TOUCH LISTENERS ====================
-async function startGameExperience() {
-  if (gameStarted || isPortraitPaused) return;
+async function startGameExperience(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if (gameStarted) return;
   gameStarted = true;
-  await sound.init();
+  updateViewportAndDeviceMode();
+  try {
+    await sound.init();
+  } catch (err) {
+    console.warn('Audio init warning on start:', err);
+  }
 
   introOverlay.classList.add('fade-out');
   setTimeout(() => {
@@ -1316,6 +1335,8 @@ async function startGameExperience() {
   syncTouchControlsVisibility();
 }
 
+btnStartGame.addEventListener('pointerup', startGameExperience);
+btnStartGame.addEventListener('touchend', startGameExperience);
 btnStartGame.addEventListener('click', startGameExperience);
 
 btnChapterToggle.addEventListener('click', (e) => {

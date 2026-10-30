@@ -1121,6 +1121,18 @@ kbd {
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.78);
   text-align: center;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.intro-start-btn {
+  position: relative;
+  z-index: 15;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(253, 230, 138, 0.4);
 }
 
 .intro-kicker {
@@ -1392,7 +1404,13 @@ kbd {
 
   .intro-card {
     max-height: calc(100dvh - 20px);
-    padding: 18px 24px;
+    padding: 16px 20px;
+  }
+
+  .intro-start-btn {
+    padding: 0.55rem 1.4rem;
+    font-size: 0.82rem;
+    font-weight: 600;
   }
 
   .intro-kicker {
