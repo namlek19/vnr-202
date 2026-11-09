@@ -3476,17 +3476,17 @@ export function drawWavingVietnamSkyFlag(
   const sunX = width * 0.72;
   const sunY = baseGroundY * 0.3;
 
-  // Kích thước lá cờ to rộng hùng tráng phủ kín 2/3 background phía bên trái
-  const flagW = Math.max(280, width * 0.62);
-  const flagH = flagW * 0.62;
+  // Kích thước lá cờ điều chỉnh vừa vặn (khoảng 75% so với bản phóng to cực đại)
+  const flagW = Math.max(220, width * 0.465);
+  const flagH = flagW * 0.64;
 
-  // Căn mép trái bắt đầu từ góc trái màn hình (có parallax bầu trời rất nhẹ), bao phủ trọn vẹn 2/3 không gian bên trái
+  // Căn mép trái lá cờ ở khoảng 1/12 bên trái màn hình, trải dài vừa vặn trong 2/3 không gian bên trái
   const skyParallaxShift = (finaleWorldX - sunX - cameraX) * 0.04;
-  const flagLeft = Math.min(width * 0.05, Math.max(-width * 0.1, width * 0.02 + skyParallaxShift));
+  const flagLeft = Math.min(width * 0.12, Math.max(width * 0.02, width * 0.06 + skyParallaxShift));
   const flagCenterX = flagLeft + flagW * 0.5;
 
   // Tâm dọc nằm CÙNG TẦNG ĐỘ CAO (sunY = baseGroundY * 0.3) với Mặt trời bình minh
-  const flagTop = Math.max(40, sunY - flagH * 0.52);
+  const flagTop = Math.max(55, sunY - flagH * 0.5);
 
   // Hàm sóng kép thời gian thực (u chạy từ 0 đến 1 từ mép trái sang mép phải lá cờ)
   const sampleWaveY = (u) =>
