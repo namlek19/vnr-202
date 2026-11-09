@@ -2112,7 +2112,13 @@ function computeTargetCameraZoom() {
     if (unvisitedNear) {
       return 1.16;
     }
+    // CHỈ RIÊNG CHỖ DÂNG NÉN HƯƠNG:
+    // Khi đang dâng hoặc chưa hoàn thành: zoom 1.16.
+    // Sau khi dâng xong 100% (finaleState.completed): thu về lại khung hình bình thường 1.0!
     if (player.x >= 2380 && player.x <= 2680) {
+      if (finaleState.completed) {
+        return 1.0;
+      }
       return 1.16;
     }
   }
@@ -2544,7 +2550,10 @@ function gameLoop(now) {
 
   // Dynamic smooth camera zoom when entering/leaving caves, cellars, trenches & monuments
   targetCameraZoom = computeTargetCameraZoom();
-  cameraZoom += (targetCameraZoom - cameraZoom) * Math.min(1, rawDt * 3.8);
+  // Riêng sau khi dâng hương xong ở Màn 4, thu chậm chậm (tốc độ lerp ~1.15) để cảm nhận sự trang nghiêm, bao quát
+  const zoomLerpSpeed =
+    currentAct === 4 && finaleState.completed && cameraZoom > 1.005 ? 1.15 : 3.8;
+  cameraZoom += (targetCameraZoom - cameraZoom) * Math.min(1, rawDt * zoomLerpSpeed);
 
   // Camera vertical tracking for underground subrooms (Act 1 cellar dy = +180, Act 3 bunker dy = +170)
   const desiredCamY = player.dy > 20 ? (player.dy - 15) * 0.94 : 0;
