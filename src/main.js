@@ -48,7 +48,10 @@ const btnChapterToggle = document.getElementById('btn-chapter-toggle');
 const chapterDrawer = document.getElementById('chapter-drawer');
 const drawerItems = Array.from(document.querySelectorAll('.drawer-item'));
 const btnAudio = document.getElementById('btn-audio');
-const audioLabel = document.getElementById('audio-label');
+const volumeSlider = document.getElementById('volume-slider');
+const speakerWaveLow = document.getElementById('speaker-wave-low');
+const speakerWaveHigh = document.getElementById('speaker-wave-high');
+const speakerMuteSlash = document.getElementById('speaker-mute-slash');
 
 const incenseHud = document.getElementById('incense-hud');
 const incenseCard = document.getElementById('incense-card');
@@ -1374,11 +1377,54 @@ document.addEventListener('pointerdown', (e) => {
   }
 });
 
-btnAudio.addEventListener('click', async () => {
-  await sound.init();
-  const isMuted = sound.toggleMute();
-  audioLabel.textContent = isMuted ? 'Âm thanh: Tắt' : 'Âm thanh: Bật';
+function syncAudioUiState() {
+  const effectiveVol = sound.getVolume();
+  const pct = Math.round(effectiveVol * 100);
+  const isMuted = sound.muted || pct <= 0;
+
+  if (volumeSlider) {
+    volumeSlider.value = String(pct);
+    volumeSlider.style.setProperty('--vol-pct', `${pct}%`);
+    volumeSlider.title = isMuted ? 'Âm lượng: Tắt (0%)' : `Âm lượng: ${pct}%`;
+  }
+  if (btnAudio) {
+    btnAudio.classList.toggle('is-muted', isMuted);
+    btnAudio.title = isMuted
+      ? 'Bật âm thanh (M)'
+      : `Tắt âm thanh (M) — Hiện tại: ${pct}%`;
+  }
+  if (speakerMuteSlash) {
+    speakerMuteSlash.classList.toggle('hidden', !isMuted);
+  }
+  if (speakerWaveLow) {
+    speakerWaveLow.classList.toggle('hidden', isMuted);
+  }
+  if (speakerWaveHigh) {
+    speakerWaveHigh.classList.toggle('hidden', isMuted || pct < 50);
+  }
+}
+
+syncAudioUiState();
+
+btnAudio.addEventListener('click', (e) => {
+  e.stopPropagation();
+  sound.init().catch(() => {});
+  sound.toggleMute();
+  syncAudioUiState();
 });
+
+if (volumeSlider) {
+  const handleVolumeInput = (e) => {
+    e.stopPropagation();
+    sound.init().catch(() => {});
+    const val = Number(volumeSlider.value) / 100;
+    sound.setVolume(val);
+    syncAudioUiState();
+  };
+  volumeSlider.addEventListener('input', handleVolumeInput);
+  volumeSlider.addEventListener('change', handleVolumeInput);
+  volumeSlider.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
 
 // Story Modal Touch & Click: Tap anywhere on card to Skip Typewriter -> Tap again (or button) to Close
 let modalPointerDownPos = null;

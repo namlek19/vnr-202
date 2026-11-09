@@ -1167,11 +1167,11 @@ export function drawSecretCellarAndHut(ctx, centerX, surfaceY, cellarFloorY, tim
   ctx.strokeRect(0, -5, 46, 5);
   ctx.restore();
 
-  const arrowBob = Math.sin(time * 4.2) * 3;
-  ctx.fillStyle = 'rgba(253, 224, 71, 0.78)';
-  ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+  const arrowBob = Math.sin(time * 4.2) * 2;
+  ctx.fillStyle = 'rgba(253, 224, 71, 0.72)';
+  ctx.font = '600 10px "Be Vietnam Pro", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('▼ Hầm bí mật [S]', hatchX, hutFloorY - 16 + arrowBob);
+  ctx.fillText('Hầm bí mật', hatchX, hutFloorY - 12 + arrowBob);
 
   ctx.restore();
 }
@@ -2422,11 +2422,11 @@ export function drawRockCaveLiaisonPost(ctx, cameraX, width, getGroundY, time) {
   ctx.lineWidth = 1.5;
   ctx.strokeRect(innerLeft, surfaceY + 31, innerRight - innerLeft, depth - 31);
 
-  const arrowBob = Math.sin(time * 4.2) * 3;
-  ctx.fillStyle = 'rgba(253, 224, 71, 0.8)';
-  ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+  const arrowBob = Math.sin(time * 4.2) * 2;
+  ctx.fillStyle = 'rgba(253, 224, 71, 0.72)';
+  ctx.font = '600 10px "Be Vietnam Pro", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('▼ Hầm chữ A [S]', innerLeft + 44, surfaceY - 14 + arrowBob);
+  ctx.fillText('Hầm chữ A', innerLeft + 44, surfaceY - 12 + arrowBob);
 
   ctx.restore();
 }
@@ -3444,6 +3444,252 @@ export function drawMonumentHillAndMemorial(
         ctx.fill();
       }
     }
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Lá Cờ Đỏ Sao Vàng Tổ Quốc kích thước lớn bay phấp phới hùng tráng trên bầu trời Màn 4
+ * - Nằm ở khoảng không gian 2/3 bên trái bầu trời (trên các tòa cao ốc, cầu dây văng và đường tàu Metro,
+ *   dưới thanh thông báo giữa màn hình).
+ * - Đồng bộ hiện dần (alpha tối đa ~0.82) theo tiến độ dâng hương (holdProgress / spiritsAlpha).
+ * - Chia thành 76 dải dọc (vertical slices) uốn lượn theo hàm sóng kép thời gian thực + đổ bóng lụa theo đạo hàm sóng.
+ * - Ngôi sao vàng 5 cánh ở tâm cờ uốn lượn khớp 100% theo mặt vải cờ, kèm hạt sáng vàng bay về phía Đài tưởng niệm.
+ */
+export function drawWavingVietnamSkyFlag(
+  ctx,
+  cameraX,
+  width,
+  baseGroundY,
+  finaleWorldX,
+  progress,
+  time
+) {
+  const clampedProgress = Math.max(0, Math.min(1, progress || 0));
+  if (clampedProgress <= 0.01) return;
+
+  const monumentSx = finaleWorldX - cameraX;
+  if (monumentSx < -200 || monumentSx > width + 420) return;
+
+  // Độ trong suốt tối đa đạt 0.82 hòa quyện vào nền trời bình minh
+  const flagAlpha = clampedProgress * 0.82;
+
+  // Kích thước lá cờ tỷ lệ chuẩn 3:2, đặt ở không gian 2/3 bên trái bầu trời
+  const flagW = Math.min(246, Math.max(168, width * 0.215));
+  const flagH = flagW * 0.66;
+
+  // Tâm ngang nằm bên trái Đài tưởng niệm, cân đối ở khoảng 1/3 - 2/5 bên trái màn hình
+  const idealCenterX = monumentSx - Math.min(410, Math.max(270, width * 0.34));
+  const flagCenterX = Math.max(
+    width * 0.22 + flagW * 0.5,
+    Math.min(monumentSx - 215, idealCenterX)
+  );
+  const flagLeft = flagCenterX - flagW * 0.5;
+
+  // Tâm dọc nằm phía trên đường tàu Metro (baseGroundY - 172) và dưới thanh thông báo Top HUD
+  const metroClearanceBottomY = baseGroundY - 186;
+  const idealTopY = metroClearanceBottomY - flagH;
+  const minSafeTopY = Math.max(96, baseGroundY - 365);
+  const flagTop = Math.max(minSafeTopY, Math.min(metroClearanceBottomY - flagH, idealTopY));
+
+  // Hàm sóng kép thời gian thực (u chạy từ 0 đến 1 từ mép trái sang mép phải lá cờ)
+  const sampleWaveY = (u) =>
+    Math.sin(u * 4.5 - time * 3.8) * (14 * u) +
+    Math.cos(u * 8 - time * 2.2) * (5 * u);
+
+  // Đạo hàm độ dốc sóng d(waveY)/du để tính đổ bóng nếp gấp lụa
+  const sampleWaveSlope = (u) =>
+    4.5 * Math.cos(u * 4.5 - time * 3.8) * (14 * u) +
+    14 * Math.sin(u * 4.5 - time * 3.8) -
+    8 * Math.sin(u * 8 - time * 2.2) * (5 * u) +
+    5 * Math.cos(u * 8 - time * 2.2);
+
+  ctx.save();
+
+  // 1. Quầng sáng bình minh vàng ấm dịu nhẹ tỏa ra phía sau lá cờ Tổ quốc
+  const centerWave = sampleWaveY(0.5);
+  const auraCx = flagCenterX;
+  const auraCy = flagTop + flagH * 0.5 + centerWave;
+  const skyAura = ctx.createRadialGradient(
+    auraCx,
+    auraCy,
+    flagH * 0.15,
+    auraCx,
+    auraCy,
+    flagW * 0.78
+  );
+  skyAura.addColorStop(0, `rgba(254, 240, 138, ${(0.34 * flagAlpha).toFixed(3)})`);
+  skyAura.addColorStop(0.52, `rgba(251, 191, 36, ${(0.15 * flagAlpha).toFixed(3)})`);
+  skyAura.addColorStop(1, 'rgba(245, 158, 11, 0)');
+  ctx.fillStyle = skyAura;
+  ctx.beginPath();
+  ctx.ellipse(auraCx, auraCy, flagW * 0.78, flagH * 0.72, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Vẽ 76 dải dọc (Vertical Slices) với đổ bóng lụa mềm mại (#991b1b <-> #dc2626 <-> #f87171)
+  const slices = 76;
+  const sliceW = flagW / slices;
+
+  for (let i = 0; i < slices; i++) {
+    const u0 = i / slices;
+    const u1 = (i + 1) / slices;
+    const uMid = (u0 + u1) * 0.5;
+
+    const x0 = flagLeft + u0 * flagW;
+    const x1 = flagLeft + u1 * flagW + 0.65; // chồng mí 0.65px khử khe hở subpixel
+    const wy0 = sampleWaveY(u0);
+    const wy1 = sampleWaveY(u1);
+
+    // Đạo hàm sóng quy đổi sang hệ số sáng tối [-1..1]
+    const slope = sampleWaveSlope(uMid);
+    const shade = Math.max(-1, Math.min(1, slope / 88));
+
+    // Nội suy màu lụa đỏ giữa bóng tối (#991b1b), đỏ cờ (#dc2626) và ánh lụa bắt sáng (#f87171)
+    let r, g, b;
+    if (shade >= 0) {
+      const t = shade * 0.72;
+      r = Math.round(220 + (248 - 220) * t);
+      g = Math.round(38 + (113 - 38) * t);
+      b = Math.round(38 + (113 - 38) * t);
+    } else {
+      const t = -shade * 0.85;
+      r = Math.round(220 + (153 - 220) * t);
+      g = Math.round(38 + (27 - 38) * t);
+      b = Math.round(38 + (27 - 38) * t);
+    }
+
+    // Mép cờ hòa quyện nhẹ nhàng vào nền trời bình minh
+    const edgeFeather = 0.9 + 0.1 * Math.sin(uMid * Math.PI);
+    ctx.globalAlpha = flagAlpha * edgeFeather;
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+    ctx.beginPath();
+    ctx.moveTo(x0, flagTop + wy0);
+    ctx.lineTo(x1, flagTop + wy1);
+    ctx.lineTo(x1, flagTop + flagH + wy1);
+    ctx.lineTo(x0, flagTop + flagH + wy0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 3. Viền sáng vàng ấm (Golden Warm Rim Glow) ôm dọc chu vi lá cờ đang uốn lượn
+  ctx.save();
+  ctx.globalAlpha = flagAlpha * 0.88;
+  ctx.strokeStyle = 'rgba(254, 240, 138, 0.78)';
+  ctx.lineWidth = 2.0;
+  ctx.shadowColor = 'rgba(251, 191, 36, 0.75)';
+  ctx.shadowBlur = 10;
+
+  ctx.beginPath();
+  for (let i = 0; i <= slices; i++) {
+    const u = i / slices;
+    const x = flagLeft + u * flagW;
+    const y = flagTop + sampleWaveY(u);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  for (let i = slices; i >= 0; i--) {
+    const u = i / slices;
+    const x = flagLeft + u * flagW;
+    const y = flagTop + flagH + sampleWaveY(u);
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. Ngôi sao vàng 5 cánh ở tâm cờ (#facc15 có hào quang #fef08a) uốn lượn khớp 100% nhịp sóng mặt vải
+  const starCx = flagLeft + flagW * 0.5;
+  const starBaseCy = flagTop + flagH * 0.5;
+  const starOuterR = flagH * 0.3;
+  const starInnerR = starOuterR * 0.382;
+
+  // Hào quang vàng ấm quanh ngôi sao tại tâm cờ (u = 0.5)
+  const starHaloCy = starBaseCy + centerWave;
+  const starHalo = ctx.createRadialGradient(
+    starCx,
+    starHaloCy,
+    starInnerR * 0.3,
+    starCx,
+    starHaloCy,
+    starOuterR * 1.45
+  );
+  starHalo.addColorStop(0, `rgba(254, 240, 138, ${(0.62 * flagAlpha).toFixed(3)})`);
+  starHalo.addColorStop(0.55, `rgba(250, 204, 21, ${(0.24 * flagAlpha).toFixed(3)})`);
+  starHalo.addColorStop(1, 'rgba(250, 204, 21, 0)');
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = starHalo;
+  ctx.beginPath();
+  ctx.arc(starCx, starHaloCy, starOuterR * 1.45, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tính 10 đỉnh của ngôi sao vàng và chia nhỏ mỗi cạnh để ngôi sao uốn cong mềm theo mặt lụa cờ
+  const starVerts = [];
+  for (let k = 0; k < 10; k++) {
+    const angle = -Math.PI * 0.5 + (k * Math.PI) / 5;
+    const r = k % 2 === 0 ? starOuterR : starInnerR;
+    starVerts.push({
+      x: starCx + Math.cos(angle) * r,
+      baseY: starBaseCy + Math.sin(angle) * r,
+    });
+  }
+
+  ctx.save();
+  ctx.globalAlpha = Math.min(0.95, flagAlpha * 1.08);
+  ctx.fillStyle = '#facc15';
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = '#fef08a';
+  ctx.shadowBlur = 12;
+
+  ctx.beginPath();
+  const edgeSubSteps = 4;
+  for (let k = 0; k < 10; k++) {
+    const v0 = starVerts[k];
+    const v1 = starVerts[(k + 1) % 10];
+    for (let s = 0; s < edgeSubSteps; s++) {
+      const t = s / edgeSubSteps;
+      const vx = v0.x + (v1.x - v0.x) * t;
+      const vBaseY = v0.baseY + (v1.baseY - v0.baseY) * t;
+      const uPt = Math.max(0, Math.min(1, (vx - flagLeft) / flagW));
+      const vy = vBaseY + sampleWaveY(uPt);
+      if (k === 0 && s === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
+    }
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // 5. Các hạt sáng vàng nhỏ bay nhẹ từ đuôi lá cờ sang phía Đài tưởng niệm
+  const sparkCount = 11;
+  const tailX = flagLeft + flagW;
+  const spanToMonument = Math.max(90, monumentSx - 90 - tailX);
+  for (let p = 0; p < sparkCount; p++) {
+    const phase = (time * 0.36 + p * (1 / sparkCount)) % 1;
+    const px = tailX - 10 + phase * spanToMonument;
+    const uTail = Math.min(1, 0.88 + (1 - phase) * 0.12);
+    const py =
+      flagTop +
+      flagH * (0.18 + ((p * 37) % 64) / 100) +
+      sampleWaveY(uTail) +
+      Math.sin(time * 2.6 + p * 1.7) * 9 -
+      phase * 14;
+    const pAlpha = Math.sin(phase * Math.PI) * flagAlpha * 0.85;
+    if (pAlpha <= 0.02) continue;
+
+    const r = 1.6 + (p % 3) * 0.7;
+    ctx.save();
+    ctx.globalAlpha = pAlpha;
+    ctx.fillStyle = p % 2 === 0 ? '#fef08a' : '#facc15';
+    ctx.shadowColor = '#fef08a';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   ctx.restore();

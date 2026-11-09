@@ -89,6 +89,9 @@ export class SoundEngine {
     this.noiseBuffer = null;
 
     this.muted = false;
+    this.defaultVolume = 0.38;
+    this.volume = 0.38;
+    this.lastNonZeroVolume = 0.38;
     this.initialized = false;
     this.currentAct = 1;
 
@@ -150,13 +153,14 @@ export class SoundEngine {
     compressor.release.value = 0.2;
 
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = this.muted ? 0.0001 : 0.82;
+    this.masterGain.gain.value =
+      this.muted || this.volume <= 0 ? 0.0001 : Math.max(0.0001, this.volume * 0.72);
 
     this.bgmBus = this.ctx.createGain();
-    this.bgmBus.gain.value = 0.42;
+    this.bgmBus.gain.value = 0.32;
 
     this.sfxBus = this.ctx.createGain();
-    this.sfxBus.gain.value = 0.78;
+    this.sfxBus.gain.value = 0.56;
 
     // Lush stereo feedback delay as lightweight reverb
     this.reverbBus = this.createDelayReverb();
@@ -282,19 +286,54 @@ export class SoundEngine {
     this.rainGain.gain.setTargetAtTime(Math.max(0.0001, target), this.ctx.currentTime, 0.25);
   }
 
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.initialized && this.masterGain) {
+  _applyMasterVolumeImmediate() {
+    const effectiveVol = this.muted ? 0 : this.volume;
+    if (this.initialized && this.masterGain && this.ctx) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(now);
-      this.masterGain.gain.setTargetAtTime(this.muted ? 0.0001 : 0.82, now, 0.06);
+      this.masterGain.gain.setTargetAtTime(
+        effectiveVol <= 0.001 ? 0.0001 : effectiveVol * 0.72,
+        now,
+        0.04
+      );
     }
+    const isPlayingBroadcast =
+      this.broadcastActive && this.broadcastAudio && !this.broadcastAudio.paused;
     Object.values(this.mp3Players).forEach((audio) => {
-      if (audio) audio.muted = this.muted;
+      if (audio) {
+        audio.muted = this.muted || effectiveVol <= 0.001;
+        audio.volume = (isPlayingBroadcast ? 0.05 : 0.42) * effectiveVol;
+      }
     });
     if (this.broadcastAudio && !this.broadcastWebAudioLinked) {
-      this.broadcastAudio.muted = this.muted;
+      this.broadcastAudio.muted = this.muted || effectiveVol <= 0.001;
+      this.broadcastAudio.volume = Math.min(1, 0.72 * effectiveVol);
     }
+  }
+
+  setVolume(val0to1) {
+    const clamped = Math.max(0, Math.min(1, Number(val0to1) || 0));
+    this.volume = clamped;
+    if (clamped > 0.005) {
+      this.lastNonZeroVolume = clamped;
+      this.muted = false;
+    } else {
+      this.muted = true;
+    }
+    this._applyMasterVolumeImmediate();
+    return this.volume;
+  }
+
+  getVolume() {
+    return this.muted ? 0 : this.volume;
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (!this.muted && this.volume <= 0.01) {
+      this.volume = this.lastNonZeroVolume || this.defaultVolume;
+    }
+    this._applyMasterVolumeImmediate();
     return this.muted;
   }
 
@@ -302,7 +341,7 @@ export class SoundEngine {
     if (!this.initialized || !this.bgmBus || !this.ctx) return;
     const isPlayingBroadcast =
       this.broadcastActive && this.broadcastAudio && !this.broadcastAudio.paused;
-    const targetBgmGain = isPlayingBroadcast ? 0.038 : 0.42;
+    const targetBgmGain = isPlayingBroadcast ? 0.028 : 0.32;
     const now = this.ctx.currentTime;
     this.bgmBus.gain.cancelScheduledValues(now);
     this.bgmBus.gain.setTargetAtTime(targetBgmGain, now, 0.16);
@@ -310,7 +349,8 @@ export class SoundEngine {
     if (this.activeMp3Act && this.mp3Players[this.activeMp3Act]) {
       const mp3 = this.mp3Players[this.activeMp3Act];
       if (!mp3.paused) {
-        mp3.volume = isPlayingBroadcast ? 0.05 : 0.48;
+        const effectiveVol = this.muted ? 0 : this.volume;
+        mp3.volume = (isPlayingBroadcast ? 0.05 : 0.42) * effectiveVol;
       }
     }
   }
@@ -342,7 +382,7 @@ export class SoundEngine {
           analyser.smoothingTimeConstant = 0.78;
 
           const voiceGain = this.ctx.createGain();
-          voiceGain.gain.value = 1.05;
+          voiceGain.gain.value = 0.72;
 
           mediaSource.connect(analyser);
           analyser.connect(voiceGain);
@@ -354,7 +394,7 @@ export class SoundEngine {
         } catch {
           this.broadcastWebAudioLinked = false;
           audio.muted = this.muted;
-          audio.volume = 0.95;
+          audio.volume = Math.min(1, 0.72 * (this.muted ? 0 : this.volume));
         }
       }
     }

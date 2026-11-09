@@ -636,6 +636,95 @@ kbd {
   color: #ffffff;
 }
 
+.audio-control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px 0 4px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.audio-control-group:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(253, 230, 138, 0.42);
+}
+
+.audio-icon-btn {
+  height: 22px;
+  width: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.audio-icon-btn:hover {
+  background: transparent;
+  border-color: transparent;
+  color: #fde047;
+}
+
+.audio-icon-btn.is-muted {
+  color: rgba(248, 113, 113, 0.88);
+}
+
+.speaker-svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 68px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #fbbf24 0%,
+    #fbbf24 var(--vol-pct, 38%),
+    rgba(255, 255, 255, 0.22) var(--vol-pct, 38%),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fef08a;
+  border: 1.5px solid #1e293b;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+  cursor: pointer;
+  transition: transform 0.14s ease, background-color 0.14s ease;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+  background: #ffffff;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fef08a;
+  border: 1.5px solid #1e293b;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+  cursor: pointer;
+}
+
 /* Pop-up Chapter Drawer floating directly above [ ☰ Chương / Màn ] */
 .chapter-menu-wrapper {
   position: relative;

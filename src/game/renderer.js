@@ -26,6 +26,7 @@ import {
   drawElevatedMetroLine,
   drawModernUniversityGate,
   drawMonumentHillAndMemorial,
+  drawWavingVietnamSkyFlag,
   drawFallenComradesSalute,
   drawDetailedPlatformSurface,
 } from './artAssets.js';
@@ -194,8 +195,24 @@ export class WorldRenderer {
     // 9. Waiting Successor at End of Act 2 & Act 3 (localX = 2860)
     this.drawWaitingSuccessor(ctx, act, getGroundY, cameraX, transitionState);
 
-    // 10. Six Fallen Comrades & Heroic Martyrs Saluting in the Sky & Around the Monument (Act 4 Finale)
+    // 10. Waving Vietnam Flag in the Left 2/3 Sky & Six Fallen Comrades Saluting Around the Monument (Act 4 Finale)
     if (act === 4) {
+      const flagSyncProgress = Math.max(
+        finaleState.spiritsAlpha || 0,
+        finaleState.holdProgress || 0
+      );
+      if (flagSyncProgress > 0.01) {
+        drawWavingVietnamSkyFlag(
+          ctx,
+          cameraX,
+          width,
+          baseGroundY,
+          FINALE_EVENT.x,
+          flagSyncProgress,
+          this.time
+        );
+      }
+
       const saluteAlpha = Math.max(
         finaleState.spiritsAlpha,
         finaleState.holdProgress > 0.35 ? (finaleState.holdProgress - 0.35) * 0.65 : 0
@@ -242,6 +259,14 @@ export class WorldRenderer {
     // 14. In-World Projectiles, Red Bomb Warning Circles, HP Bars & Floating Head Notices
     if (combatSystem) {
       combatSystem.renderCombatHudAndProjectiles(ctx, state);
+    }
+
+    // 15. Atmospheric Guiding System (Genshin-style Bezier Light Trail & Minimalist ❖ Compass)
+    this.drawAtmosphericGuidingSystem(ctx, state);
+
+    // 16. Floating PC Mechanical Keycap Prompts ([E], [S], [W], [F]) with smooth proximity fade
+    if (!isTouchMode) {
+      this.drawFloatingPcKeycapPrompts(ctx, state);
     }
 
     ctx.restore();
@@ -833,43 +858,22 @@ export class WorldRenderer {
         ctx.arc(0, -24, auraRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Animated Downward-Pointing Arrow (Mũi tên vàng phát sáng chỉ xuống vật phẩm)
-        const arrowY = -62 + Math.sin(this.time * 4.4) * 5;
-        ctx.save();
-        ctx.translate(0, arrowY);
-
-        const arrAura = ctx.createRadialGradient(0, 0, 1, 0, 0, 15);
-        arrAura.addColorStop(0, 'rgba(254, 240, 138, 0.92)');
-        arrAura.addColorStop(0.5, 'rgba(245, 158, 11, 0.45)');
-        arrAura.addColorStop(1, 'rgba(245, 158, 11, 0)');
-        ctx.fillStyle = arrAura;
-        ctx.beginPath();
-        ctx.arc(0, 0, 15, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Downward Arrow Shape (▼)
-        ctx.beginPath();
-        ctx.moveTo(-5, -8);
-        ctx.lineTo(5, -8);
-        ctx.lineTo(5, -2);
-        ctx.lineTo(8.5, -2);
-        ctx.lineTo(0, 8);
-        ctx.lineTo(-8.5, -2);
-        ctx.lineTo(-5, -2);
-        ctx.closePath();
-
-        const arrGrad = ctx.createLinearGradient(0, -8, 0, 8);
-        arrGrad.addColorStop(0, '#ffffff');
-        arrGrad.addColorStop(0.3, '#fef08a');
-        arrGrad.addColorStop(1, '#f59e0b');
-        ctx.fillStyle = arrGrad;
-        ctx.fill();
-
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.2;
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-        ctx.restore();
+        // Subtle floating 4-pointed golden starlight mote above unvisited item (replacing bulky arrow)
+        if (!isNear) {
+          const moteY = -62 + Math.sin(this.time * 3.4) * 3.5;
+          ctx.save();
+          ctx.translate(0, moteY);
+          ctx.fillStyle = `rgba(254, 240, 138, ${0.65 + pulse * 0.3})`;
+          ctx.beginPath();
+          ctx.moveTo(0, -5);
+          ctx.quadraticCurveTo(1.2, -1.2, 5, 0);
+          ctx.quadraticCurveTo(1.2, 1.2, 0, 5);
+          ctx.quadraticCurveTo(-1.2, 1.2, -5, 0);
+          ctx.quadraticCurveTo(-1.2, -1.2, 0, -5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
       } else {
         // Visited item subtle ambient glow
         const subtleAlpha = isNear ? 0.35 : isSeeking ? 0.25 : 0.12;
@@ -1013,18 +1017,129 @@ export class WorldRenderer {
         break;
       }
       case 'rice_jar_blackboard': {
-        // Hũ gạo cứu đói bằng gốm & Bảng đen lớp Bình dân học vụ
-        ctx.fillStyle = '#78350f';
+        // Cụm Hũ gạo tiết kiệm đặt trên bàn gỗ thấp & Bảng đen khung gỗ trên giá đỡ 3 chân (easel)
+        // Căn chỉnh đối xứng hoàn hảo ngay tâm luồng sáng tương tác (x = -32 .. +32)
+        const rimCol = isNear ? '#fef08a' : 'rgba(253, 230, 138, 0.82)';
+
+        // 1. BÊN TRÁI (x = -31 .. -3, tâm x = -17): Bàn gỗ thấp & Hũ gạo tiết kiệm bằng sành nâu đất
+        // Mặt bàn gỗ thấp và 2 chân bàn có thanh giằng ngang
+        ctx.fillStyle = '#452715';
+        fillRoundedRect(ctx, -31, -17, 28, 3.8, 1.5);
+        ctx.fillRect(-27.5, -13.5, 3.5, 13.5);
+        ctx.fillRect(-10, -13.5, 3.5, 13.5);
+        ctx.fillRect(-25, -6.5, 16, 2.2);
+        ctx.strokeStyle = rimCol;
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(-30.5, -16.8, 27, 3.4);
+
+        // Thân hũ sành màu nâu đất đặt ngay ngắn trên mặt bàn gỗ (tâm x = -17, y = -29)
+        const jarGrad = ctx.createRadialGradient(-19, -31, 2, -17, -28, 13);
+        jarGrad.addColorStop(0, '#9a3412');
+        jarGrad.addColorStop(0.65, '#7c2d12');
+        jarGrad.addColorStop(1, '#431407');
+        ctx.fillStyle = jarGrad;
         ctx.beginPath();
-        ctx.ellipse(-17, -15, 12, 15, 0, 0, Math.PI * 2);
+        ctx.ellipse(-17, -28.5, 10.5, 11.8, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = rimCol;
+        ctx.lineWidth = 1.4;
         ctx.stroke();
+
+        // Cổ hũ sành & Nắp vải đỏ buộc dây vàng ("Hũ gạo cứu đói")
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(-23.5, -38.5);
+        ctx.quadraticCurveTo(-17, -44.5, -10.5, -38.5);
+        ctx.lineTo(-11.5, -36.2);
+        ctx.quadraticCurveTo(-17, -37.8, -22.5, -36.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-22, -37.5);
+        ctx.lineTo(-12, -37.5);
+        ctx.stroke();
+
+        // Nhãn đỏ hình thoi dán trước bụng hũ sành
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(-17, -34.5);
+        ctx.lineTo(-11.5, -28.5);
+        ctx.lineTo(-17, -22.5);
+        ctx.lineTo(-22.5, -28.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+        drawStar(ctx, -17, -28.5, 5, 2.6, 1.1, '#fef08a');
+
+        // 2. BÊN PHẢI (x = -1 .. +33, tâm x = +16): Giá đỡ 3 chân (Easel) & Bảng đen khung gỗ
+        // 3 chân gỗ giá đỡ bảng (trái, phải, chân trụ giữa) + chốt đỉnh giá đỡ
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 2.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        // Chân trái
+        ctx.moveTo(10, -56);
+        ctx.lineTo(2, 0);
+        // Chân phải
+        ctx.moveTo(22, -56);
+        ctx.lineTo(30, 0);
+        // Chân chống thứ 3 ở giữa phía sau
+        ctx.moveTo(16, -54);
+        ctx.lineTo(16, 0);
+        // Đỉnh giá đỡ nhô trên bảng
+        ctx.moveTo(16, -61);
+        ctx.lineTo(16, -55);
+        ctx.stroke();
+
+        // Khung gỗ của Bảng đen (x = -1 .. +33, y = -55 .. -22)
+        ctx.fillStyle = '#92400e';
+        fillRoundedRect(ctx, -1, -55, 34, 33, 2.5);
+        ctx.strokeStyle = rimCol;
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(-0.5, -54.5, 33, 32);
+
+        // Mặt bảng đá đen bên trong khung gỗ
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(2, -52, 34, 25);
-        ctx.strokeRect(2, -52, 34, 25);
+        ctx.fillRect(1.8, -52.2, 28.4, 27.4);
+
+        // Thanh gỗ đỡ bảng và để viên phấn trắng bên dưới
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(-3, -22.5, 38, 3.2);
+        ctx.strokeStyle = rimCol;
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(-3, -22.5, 38, 3.2);
+        // Viên phấn trắng đặt trên máng bảng
         ctx.fillStyle = '#f8fafc';
-        ctx.font = '700 9.5px "Be Vietnam Pro", sans-serif';
-        ctx.fillText('i - t', 9, -36);
+        ctx.fillRect(21, -24.2, 6, 1.8);
+
+        // Tiêu đề nhỏ "BÌNH DÂN HỌC VỤ" phía trên mặt bảng
+        ctx.save();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '700 3.7px "Be Vietnam Pro", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('BÌNH DÂN HỌC VỤ', 16, -47.5);
+
+        // Đường gạch phấn mảnh dưới tiêu đề
+        ctx.strokeStyle = 'rgba(253, 230, 138, 0.45)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(4.5, -44.2);
+        ctx.lineTo(27.5, -44.2);
+        ctx.stroke();
+
+        // Chữ phấn trắng "i - t" (Easter Egg lịch sử "i ngắn có chấm, tờ dài có ngang")
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 11.5px "Be Vietnam Pro", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('i - t', 16, -34.5);
+        ctx.restore();
         break;
       }
       case 'barricade_speaker': {
@@ -1437,6 +1552,586 @@ export class WorldRenderer {
     }
 
     ctx.restore();
+  }
+
+  // ============================================================================
+  // HỆ THỐNG DẪN ĐƯỜNG NGHỆ THUẬT CHO TÂN THỦ (ATMOSPHERIC GUIDING SYSTEM)
+  // ============================================================================
+
+  /**
+   * Tìm mục tiêu tiếp theo (getNextTarget):
+   * - Ưu tiên 1: Vật phẩm lịch sử (interactable) đầu tiên chưa đọc trong Màn.
+   *   Nếu vật phẩm ở dưới hầm ngầm hoặc trên tầng cao mà người chơi đang ở ngoài,
+   *   trỏ tới Cửa hầm / Bậc thang đầu tiên trước; khi đã vào hầm/lên cầu thang thì trỏ thẳng vào Vật phẩm.
+   * - Ưu tiên 2: Khi đã đọc đủ tất cả vật phẩm trong Màn, dẫn tới Vùng Mini-game Chiến đấu cuối màn
+   *   (hoặc sang Màn kế tiếp nếu đã thắng).
+   */
+  getNextTarget(state) {
+    const {
+      act,
+      baseGroundY,
+      getGroundY,
+      player,
+      interactables,
+      completedQtes,
+      combatSystem,
+      finaleState,
+      transitionState,
+    } = state;
+
+    if (!player || (transitionState && transitionState.active)) return null;
+    const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
+
+    // Ưu tiên 1: Vật phẩm lịch sử đầu tiên chưa đọc trong Màn hiện tại
+    const firstUnvisited = interactables
+      ? interactables.find((it) => it.act === act && !it.visited)
+      : null;
+
+    if (firstUnvisited) {
+      // Nếu người chơi đang ở sâu dưới hầm (Màn 1 hoặc Màn 3) mà mục tiêu kế tiếp ở trên mặt đất -> chỉ ra cầu thang lên
+      if (
+        (act === 1 || act === 3) &&
+        player.dy >= 45 &&
+        firstUnvisited.id !== 'act1_item1' &&
+        firstUnvisited.id !== 'act3_item1'
+      ) {
+        return { x: 486, y: baseGroundY - 12, kind: 'stair_up' };
+      }
+
+      // Màn 1 - Vật phẩm 1 (Cương lĩnh 1930 dưới đáy Hầm bí mật x = 635, dy = +180)
+      if (firstUnvisited.id === 'act1_item1') {
+        if (player.dy < 45) {
+          return { x: 508, y: baseGroundY + 12, kind: 'cellar_down' };
+        }
+        return { x: firstUnvisited.x, y: getGroundY(firstUnvisited.x) - 28, kind: 'item' };
+      }
+
+      // Màn 1 - Vật phẩm 2 (Mặt trận Việt Minh trên Hang Pác Bó x = 1435, dy = -146)
+      if (firstUnvisited.id === 'act1_item2') {
+        if (player.dy > -32) {
+          return { x: 1015, y: baseGroundY - 46 - 14, kind: 'step_up' };
+        }
+        if (player.dy > -82) {
+          return { x: 1125, y: baseGroundY - 96 - 14, kind: 'step_up' };
+        }
+        if (player.dy > -125) {
+          return { x: 1235, y: baseGroundY - 146 - 14, kind: 'step_up' };
+        }
+        return { x: firstUnvisited.x, y: baseGroundY - 146 - 28, kind: 'item' };
+      }
+
+      // Màn 2 - Vật phẩm 2 (Loa truyền thanh trên Tầng 2 Nhà phố cổ Hà Nội x = 1328, dy = -142)
+      if (firstUnvisited.id === 'act2_item2') {
+        if (player.dy > -35) {
+          if (player.x < 860) {
+            return { x: 875, y: baseGroundY - 46 - 14, kind: 'step_up' };
+          }
+          return { x: 1110, y: baseGroundY - 50 - 14, kind: 'step_up' };
+        }
+        if (player.dy > -82) {
+          return { x: 1205, y: baseGroundY - 98 - 14, kind: 'step_up' };
+        }
+        if (player.dy > -125) {
+          return { x: 1280, y: baseGroundY - 142 - 14, kind: 'step_up' };
+        }
+        return { x: firstUnvisited.x, y: baseGroundY - 142 - 28, kind: 'item' };
+      }
+
+      // Màn 3 - Vật phẩm 1 (Nghị quyết Đại hội III dưới Hầm chữ A Trường Sơn x = 642, dy = +170)
+      if (firstUnvisited.id === 'act3_item1') {
+        if (player.dy < 45) {
+          return { x: 508, y: baseGroundY + 12, kind: 'cellar_down' };
+        }
+        return { x: firstUnvisited.x, y: getGroundY(firstUnvisited.x) - 28, kind: 'item' };
+      }
+
+      // Các vật phẩm khác trên mặt đất hoặc platform
+      let itemY = getGroundY(firstUnvisited.x);
+      if (firstUnvisited.platformId) {
+        const plat = actCfg.platforms.find((p) => p.id === firstUnvisited.platformId);
+        if (plat) itemY = baseGroundY + plat.dy;
+      }
+      return { x: firstUnvisited.x, y: itemY - 28, kind: 'item' };
+    }
+
+    // Ưu tiên 2: Đã đọc đủ tất cả vật phẩm trong Màn -> dẫn tới Vùng Chiến đấu cuối màn hoặc lối sang Màn kế tiếp
+    if ((act === 1 || act === 3) && player.dy >= 45) {
+      return { x: 486, y: baseGroundY - 12, kind: 'stair_up' };
+    }
+
+    if (act === 1) {
+      if (!completedQtes.has('qte_1a')) {
+        return { x: 2335, y: getGroundY(2335) - 52, kind: 'combat' };
+      }
+      if (!completedQtes.has('qte_1b')) {
+        return { x: 2720, y: getGroundY(2720) - 65, kind: 'combat' };
+      }
+      return { x: 2860, y: getGroundY(2860) - 42, kind: 'exit' };
+    }
+
+    if (act === 2) {
+      if (combatSystem && !combatSystem.act2.tankDestroyed && player.x < 1560) {
+        return { x: 1385, y: baseGroundY - 142 - 32, kind: 'combat' };
+      }
+      if (!completedQtes.has('qte_2a')) {
+        return { x: 2565, y: getGroundY(2565) - 48, kind: 'combat' };
+      }
+      if (!completedQtes.has('qte_2b')) {
+        return { x: 2685, y: baseGroundY - 54 - 36, kind: 'combat' };
+      }
+      return { x: 2850, y: getGroundY(2850) - 44, kind: 'exit' };
+    }
+
+    if (act === 3) {
+      if (!completedQtes.has('qte_3a')) {
+        return { x: 1730, y: getGroundY(1730) - 48, kind: 'combat' };
+      }
+      if (!completedQtes.has('qte_3b')) {
+        return { x: 2545, y: getGroundY(2545) - 48, kind: 'combat' };
+      }
+      return { x: 2850, y: getGroundY(2850) - 44, kind: 'exit' };
+    }
+
+    if (act === 4) {
+      if (!finaleState || !finaleState.completed) {
+        return { x: FINALE_EVENT.x - 58, y: getGroundY(FINALE_EVENT.x) - 50, kind: 'finale' };
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Vẽ Hệ thống Dẫn đường Nghệ thuật trên Canvas:
+   * 1) Luồng Hạt Sáng Dẫn Lối (Guiding Light Trail kiểu Genshin Impact) bay theo đường cong Bezier.
+   * 2) Kim Chỉ Nam Hình Thoi Tối Giản (❖ Floating Compass) kèm mũi nhọn xoay theo góc thực tế & khoảng cách (❖ 15m).
+   */
+  drawAtmosphericGuidingSystem(ctx, state) {
+    const target = this.getNextTarget(state);
+    if (!target) return;
+
+    const { player, cameraX, width } = state;
+    const startWorldX = player.x;
+    const startWorldY = player.y - (player.isCrouching ? 32 : 46);
+
+    const rawDx = target.x - startWorldX;
+    const rawDy = target.y - startWorldY;
+    const fullDist = Math.hypot(rawDx, rawDy);
+
+    // 1. LUỒNG HẠT SÁNG DẪN LỐI (GUIDING LIGHT TRAIL KIỂU GENSHIN IMPACT)
+    // Khi người chơi đứng sát mục tiêu (< 90px), luồng sáng tự động mờ đi
+    if (fullDist > 42) {
+      const trailFade = Math.max(0, Math.min(1, (fullDist - 52) / 48));
+      if (trailFade > 0.02) {
+        const maxReach = Math.min(fullDist, 380);
+        const dirAngle = Math.atan2(rawDy, rawDx);
+        const endWorldX =
+          fullDist <= 380 ? target.x : startWorldX + Math.cos(dirAngle) * maxReach;
+        const endWorldY =
+          fullDist <= 380 ? target.y : startWorldY + Math.sin(dirAngle) * maxReach;
+
+        const p0x = startWorldX - cameraX;
+        const p0y = startWorldY;
+        const p2x = endWorldX - cameraX;
+        const p2y = endWorldY;
+
+        // Điểm điều khiển Bezier uốn lượn mềm mại (vồng lên khi nhảy bậc đá hoặc chúc xuống miệng hầm)
+        const waveLift = Math.sin(this.time * 2.4) * 14;
+        let archOffset = -28 + waveLift;
+        if (target.kind === 'cellar_down') {
+          archOffset = -34 + waveLift * 0.5;
+        } else if (target.kind === 'step_up') {
+          archOffset = -44 + waveLift * 0.6;
+        }
+        const p1x = (p0x + p2x) * 0.5;
+        const p1y = Math.min(p0y, p2y) + archOffset;
+
+        const sampleBezier = (t) => {
+          const inv = 1 - t;
+          const x = inv * inv * p0x + 2 * inv * t * p1x + t * t * p2x;
+          const y =
+            inv * inv * p0y +
+            2 * inv * t * p1y +
+            t * t * p2y +
+            Math.sin(t * Math.PI * 2 - this.time * 4.2) * (5.5 * Math.sin(t * Math.PI));
+          return { x, y };
+        };
+
+        ctx.save();
+
+        // Dải lụa ánh sáng mảnh mai dẫn hướng
+        const ribbonGrad = ctx.createLinearGradient(p0x, p0y, p2x, p2y);
+        ribbonGrad.addColorStop(0, 'rgba(254, 240, 138, 0)');
+        ribbonGrad.addColorStop(0.25, `rgba(253, 224, 71, ${(0.22 * trailFade).toFixed(3)})`);
+        ribbonGrad.addColorStop(0.75, `rgba(251, 191, 36, ${(0.28 * trailFade).toFixed(3)})`);
+        ribbonGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+
+        ctx.strokeStyle = ribbonGrad;
+        ctx.lineWidth = 1.6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        const curveSteps = 24;
+        for (let s = 0; s <= curveSteps; s++) {
+          const pt = sampleBezier(s / curveSteps);
+          if (s === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.stroke();
+
+        // Các hạt sáng vàng ấm bay lướt dọc theo đường cong Bezier về phía mục tiêu
+        const moteCount = 14;
+        for (let i = 0; i < moteCount; i++) {
+          const t = (i / moteCount + this.time * 0.46) % 1;
+          const pt = sampleBezier(t);
+          if (pt.x < -40 || pt.x > width + 40) continue;
+
+          const prevPt = sampleBezier(Math.max(0, t - 0.045));
+          const envAlpha = Math.sin(t * Math.PI) * trailFade;
+          if (envAlpha <= 0.03) continue;
+
+          const radius = 1.4 + Math.sin(t * Math.PI) * 1.6;
+
+          // Đuôi sao băng mảnh phía sau hạt sáng
+          ctx.strokeStyle = `rgba(253, 224, 71, ${(envAlpha * 0.55).toFixed(3)})`;
+          ctx.lineWidth = radius * 0.95;
+          ctx.beginPath();
+          ctx.moveTo(prevPt.x, prevPt.y);
+          ctx.lineTo(pt.x, pt.y);
+          ctx.stroke();
+
+          // Quầng sáng vàng ấm quanh hạt
+          const glow = ctx.createRadialGradient(pt.x, pt.y, 0.4, pt.x, pt.y, radius * 3.2);
+          glow.addColorStop(0, `rgba(255, 251, 235, ${(envAlpha * 0.95).toFixed(3)})`);
+          glow.addColorStop(0.45, `rgba(253, 224, 71, ${(envAlpha * 0.52).toFixed(3)})`);
+          glow.addColorStop(1, 'rgba(245, 158, 11, 0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, radius * 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    // 2. KIM CHỈ NAM HÌNH THOI TỐI GIẢN (❖ FLOATING COMPASS KHI MỤC TIÊU > 150PX)
+    if (fullDist > 150) {
+      const compassAlpha = Math.max(0, Math.min(1, (fullDist - 150) / 38));
+      const angle = Math.atan2(target.y - startWorldY, target.x - startWorldX);
+      const dirSign = Math.cos(angle) >= 0 ? 1 : -1;
+
+      const playerSx = startWorldX - cameraX;
+      const floatBob = Math.sin(this.time * 3.1) * 3.0;
+      const compassX = Math.max(
+        48,
+        Math.min(width - 58, playerSx + dirSign * 38)
+      );
+      const compassY = player.y - (player.isCrouching ? 74 : 106) + floatBob;
+
+      const distanceMeters = Math.max(1, Math.round(fullDist / 45));
+
+      ctx.save();
+      ctx.globalAlpha = compassAlpha * 0.92;
+      ctx.translate(compassX, compassY);
+
+      // Quầng sáng dịu nhẹ quanh biểu tượng ❖
+      const cGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+      cGlow.addColorStop(0, 'rgba(254, 243, 199, 0.45)');
+      cGlow.addColorStop(1, 'rgba(251, 191, 36, 0)');
+      ctx.fillStyle = cGlow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Biểu tượng hình thoi mảnh mai màu vàng kem (❖)
+      ctx.fillStyle = '#fef3c7';
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(0, -5.5);
+      ctx.quadraticCurveTo(1.4, -1.4, 5.5, 0);
+      ctx.quadraticCurveTo(1.4, 1.4, 0, 5.5);
+      ctx.quadraticCurveTo(-1.4, 1.4, -5.5, 0);
+      ctx.quadraticCurveTo(-1.4, -1.4, 0, -5.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Mũi nhọn nhỏ xoay theo góc thực tế Math.atan2(targetY - playerY, targetX - playerX)
+      ctx.save();
+      ctx.rotate(angle);
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#fef3c7';
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(12.5, 0);
+      ctx.lineTo(7.2, -3.4);
+      ctx.lineTo(8.6, 0);
+      ctx.lineTo(7.2, 3.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Nhãn khoảng cách ngắn gọn (ví dụ: ❖ 15m) lơ lửng nhẹ nhàng cạnh kim chỉ nam
+      const distLabel = `❖ ${distanceMeters}m`;
+      ctx.font = '600 10.5px "Be Vietnam Pro", sans-serif';
+      const labelOffsetX = dirSign >= 0 ? 16 : -16;
+      ctx.textAlign = dirSign >= 0 ? 'left' : 'right';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(2, 6, 23, 0.92)';
+      ctx.shadowBlur = 5;
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillText(distLabel, labelOffsetX, 0.5);
+
+      ctx.restore();
+    }
+  }
+
+  // ============================================================================
+  // NÚT PHÍM BẤM NỔI BẬT TRÊN BẢN PC (FLOATING MECHANICAL KEYCAP PROMPTS)
+  // ============================================================================
+
+  /**
+   * Vẽ một phím cơ thu nhỏ (28x28px, nền tối #1e293b, viền sáng vàng #fbbf24, bo góc 6px,
+   * hiệu ứng nhấp nhô bounce nhẹ và tự động fade-out khi đi ra xa).
+   */
+  drawKeycapPrompt(ctx, sx, sy, keyChar, alpha = 1, phaseOffset = 0) {
+    const clampedAlpha = Math.max(0, Math.min(1, alpha));
+    if (clampedAlpha <= 0.02) return;
+
+    const bounce = Math.sin(this.time * 4.8 + phaseOffset) * 3.2;
+    const isWide = keyChar.length > 2;
+    const kw = isWide ? Math.max(44, keyChar.length * 8.5 + 14) : 28;
+    const kh = 28;
+    const radius = 6;
+
+    ctx.save();
+    ctx.globalAlpha = clampedAlpha;
+    ctx.translate(sx, sy + bounce);
+
+    // Hào quang vàng dịu phía sau phím cơ
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, kw * 0.85);
+    glow.addColorStop(0, 'rgba(251, 191, 36, 0.36)');
+    glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, kw * 0.85, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Đế dưới phím cơ 3D (Keycap bottom bevel)
+    ctx.fillStyle = '#0f172a';
+    fillRoundedRect(ctx, -kw * 0.5, -kh * 0.5 + 2.5, kw, kh, radius);
+
+    // Mặt phím tối #1e293b
+    ctx.fillStyle = '#1e293b';
+    fillRoundedRect(ctx, -kw * 0.5, -kh * 0.5, kw, kh, radius);
+
+    // Viền sáng vàng #fbbf24 bo góc 6px
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.65;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(-kw * 0.5, -kh * 0.5, kw, kh, radius);
+    } else {
+      ctx.rect(-kw * 0.5, -kh * 0.5, kw, kh);
+    }
+    ctx.stroke();
+
+    // Viền highlight mảnh bên trong mặt phím cơ
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.25)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(-kw * 0.5 + 2.2, -kh * 0.5 + 2, kw - 4.4, kh - 5, 4);
+    } else {
+      ctx.rect(-kw * 0.5 + 2.2, -kh * 0.5 + 2, kw - 4.4, kh - 5);
+    }
+    ctx.stroke();
+
+    // Ký tự phím bấm sắc nét ở tâm Keycap
+    ctx.fillStyle = '#fef08a';
+    ctx.font = isWide
+      ? '700 10.5px "Be Vietnam Pro", sans-serif'
+      : '700 13px "Be Vietnam Pro", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(keyChar, 0, 0.5);
+
+    ctx.restore();
+  }
+
+  /**
+   * Tự động hiển thị các nút Keycap [E], [S], [W], [F] trên bản PC khi người chơi đến gần điểm tương tác
+   * và mờ dần (fade-out) khi đi ra xa.
+   */
+  drawFloatingPcKeycapPrompts(ctx, state) {
+    const {
+      act,
+      width,
+      baseGroundY,
+      getGroundY,
+      cameraX,
+      player,
+      interactables,
+      completedQtes,
+      combatSystem,
+      finaleState,
+      transitionState,
+    } = state;
+
+    if (!player || (transitionState && transitionState.active)) return;
+    const actCfg = ACTS.find((a) => a.id === act) || ACTS[0];
+
+    const calcProximityAlpha = (wx, wy, fullRange = 115, fadeRange = 175) => {
+      const d = Math.hypot(player.x - wx, player.y - wy);
+      if (d >= fadeRange) return 0;
+      if (d <= fullRange) return 1;
+      return (fadeRange - d) / (fadeRange - fullRange);
+    };
+
+    // 1. Khi đứng gần Văn kiện / Vật phẩm lịch sử: Hiện nút [ E ]
+    if (interactables) {
+      for (const item of interactables) {
+        if (item.act !== act) continue;
+        const sx = item.x - cameraX;
+        if (sx < -60 || sx > width + 60) continue;
+
+        let itemY = getGroundY(item.x);
+        if (item.platformId) {
+          const plat = actCfg.platforms.find((p) => p.id === item.platformId);
+          if (plat) itemY = baseGroundY + plat.dy;
+        }
+
+        const dx = Math.abs(player.x - item.x);
+        const dy = Math.abs(player.y - itemY);
+        if (dx < 165 && dy < 110) {
+          const alphaX = dx <= 105 ? 1 : (165 - dx) / 60;
+          const alphaY = dy <= 75 ? 1 : (110 - dy) / 35;
+          const alpha = Math.min(alphaX, alphaY);
+          this.drawKeycapPrompt(ctx, sx, itemY - 76, 'E', alpha, item.x * 0.02);
+        }
+      }
+    }
+
+    // 2. Khi đứng ở miệng hầm bí mật / lối đi xuống: Hiện nút [ S ]
+    if ((act === 1 || act === 3) && player.dy < 45) {
+      const hatchWorldX = 508;
+      const hatchWorldY = baseGroundY;
+      const alpha = calcProximityAlpha(hatchWorldX, hatchWorldY, 95, 165);
+      if (alpha > 0.02) {
+        this.drawKeycapPrompt(
+          ctx,
+          hatchWorldX - cameraX,
+          hatchWorldY - 42,
+          'S',
+          alpha,
+          1.2
+        );
+      }
+    }
+
+    // 3. Khi đứng ở chân bậc đá / cầu thang cần nhảy lên: Hiện nút [ W ]
+    const jumpSteps = [];
+    if (act === 1) {
+      jumpSteps.push({ x: 985, footY: baseGroundY + 28, keyY: baseGroundY - 68 });
+      if (!completedQtes.has('qte_1a')) {
+        jumpSteps.push({ x: 1962, footY: baseGroundY, keyY: baseGroundY - 68 });
+      }
+    } else if (act === 2) {
+      jumpSteps.push({ x: 845, footY: baseGroundY, keyY: baseGroundY - 68 });
+      jumpSteps.push({ x: 1088, footY: baseGroundY, keyY: baseGroundY - 72 });
+    } else if (act === 3) {
+      if (player.dy > 20 && player.x >= 1080 && player.x <= 1410) {
+        jumpSteps.push({ x: 1335, footY: baseGroundY + 62, keyY: baseGroundY - 12 });
+      }
+    } else if (act === 4) {
+      jumpSteps.push({ x: 1030, footY: baseGroundY, keyY: baseGroundY - 76 });
+    }
+
+    for (const st of jumpSteps) {
+      if (player.y > st.keyY + 25) {
+        const alpha = calcProximityAlpha(st.x, st.footY, 85, 148);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(ctx, st.x - cameraX, st.keyY, 'W', alpha, st.x * 0.01);
+        }
+      }
+    }
+
+    // 4. Khi đứng trong tầm đánh Kho thóc, đặt Bộc phá lô cốt, bắn Pháo cao xạ hoặc giữ nút dâng hương: Hiện nút [ F ]
+    if (act === 1) {
+      if (!completedQtes.has('qte_1a')) {
+        const gx = 2335;
+        const gy = getGroundY(gx);
+        const alpha = calcProximityAlpha(gx, gy, 110, 185);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(ctx, gx - cameraX, gy - 118, 'F', alpha, 0.5);
+        }
+      } else if (!completedQtes.has('qte_1b')) {
+        const bx = 2720;
+        const bgy = getGroundY(bx);
+        const alpha = calcProximityAlpha(bx, bgy, 115, 185);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(ctx, bx - cameraX, bgy - 148, 'F', alpha, 0.8);
+        }
+      }
+    } else if (act === 2) {
+      if (combatSystem && !combatSystem.act2.tankDestroyed && player.dy <= -42) {
+        const tx = 1385;
+        const ty = baseGroundY + player.dy;
+        const alpha = calcProximityAlpha(tx, ty, 130, 195);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(
+            ctx,
+            player.x - cameraX + 26,
+            player.y - 96,
+            'F',
+            alpha,
+            1.1
+          );
+        }
+      }
+      if (!completedQtes.has('qte_2a')) {
+        const px = 2555;
+        const pgy = getGroundY(px);
+        const hasCharge = Boolean(combatSystem && combatSystem.act2.plantedCharge);
+        if (!hasCharge) {
+          const alpha = calcProximityAlpha(px, pgy, 105, 175);
+          if (alpha > 0.02) {
+            this.drawKeycapPrompt(ctx, px - cameraX, pgy - 92, 'F', alpha, 1.5);
+          }
+        }
+      } else if (!completedQtes.has('qte_2b')) {
+        const rx = 2685;
+        const rgy = baseGroundY - 54;
+        const alpha = calcProximityAlpha(rx, rgy, 115, 185);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(ctx, rx - cameraX, rgy - 96, 'F', alpha, 1.8);
+        }
+      }
+    } else if (act === 3) {
+      if (!completedQtes.has('qte_3a') && combatSystem) {
+        for (const g of combatSystem.act3.guns) {
+          const gy = getGroundY(g.x);
+          const alpha = calcProximityAlpha(g.x, gy, 72, 130);
+          if (alpha > 0.02) {
+            this.drawKeycapPrompt(ctx, g.x - cameraX, gy - 116, 'F', alpha, g.x * 0.01);
+          }
+        }
+      } else if (!completedQtes.has('qte_3b') && player.x >= 2180 && player.x <= 2640) {
+        this.drawKeycapPrompt(ctx, player.x - cameraX + 26, player.y - 96, 'F', 0.92, 2.1);
+      }
+    } else if (act === 4) {
+      if (!finaleState || !finaleState.completed) {
+        const altarX = FINALE_EVENT.x - 58;
+        const altarY = getGroundY(FINALE_EVENT.x);
+        const alpha = calcProximityAlpha(FINALE_EVENT.x - 30, altarY, 135, 210);
+        if (alpha > 0.02) {
+          this.drawKeycapPrompt(ctx, altarX - cameraX, altarY - 102, 'F', alpha, 2.4);
+        }
+      }
+    }
   }
 }
 
