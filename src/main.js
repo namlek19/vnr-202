@@ -69,6 +69,24 @@ const modalNote = document.getElementById('modal-note');
 const modalHint = document.getElementById('modal-hint');
 const btnCloseModal = document.getElementById('btn-close-modal');
 
+// Historical Images Gallery & Lightbox DOM Elements
+const modalGallery = document.getElementById('modal-gallery');
+const galleryCounter = document.getElementById('gallery-counter');
+const btnGalleryPrev = document.getElementById('btn-gallery-prev');
+const btnGalleryNext = document.getElementById('btn-gallery-next');
+const galleryImgBox = document.getElementById('gallery-img-box');
+const galleryImg = document.getElementById('gallery-img');
+const galleryImgFallbackNote = document.getElementById('gallery-img-fallback-note');
+const galleryCaption = document.getElementById('gallery-caption');
+const galleryDots = document.getElementById('gallery-dots');
+const galleryThumbs = document.getElementById('gallery-thumbs');
+
+const imageLightbox = document.getElementById('image-lightbox');
+const lightboxBackdrop = document.getElementById('lightbox-backdrop');
+const btnCloseLightbox = document.getElementById('btn-close-lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxCaption = document.getElementById('lightbox-caption');
+
 const finaleOverlay = document.getElementById('finale-overlay');
 const finaleQuoteText = document.getElementById('finale-quote-text');
 const finaleQuoteAuthor = document.getElementById('finale-quote-author');
@@ -710,7 +728,205 @@ function updateVovBroadcastHud() {
   }
 }
 
-// ==================== STORY MODAL (TYPEWRITER & FOLLOWER RECRUITMENT) ====================
+// ==================== STORY MODAL (TYPEWRITER, HISTORICAL GALLERY & FOLLOWER RECRUITMENT) ====================
+let currentGalleryImages = [];
+let currentGalleryIndex = 0;
+
+function formatCaptionText(text) {
+  if (!text) return '';
+  return text
+    .replace(/^(Hình\s+\d+[:.]?)/gi, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>');
+}
+
+function loadImageWithFallbacks(imgEl, primarySrc, fallbacks, altText, fallbackNoteEl) {
+  if (!imgEl) return;
+  imgEl.alt = altText || 'Hình ảnh tư liệu lịch sử';
+  if (fallbackNoteEl) fallbackNoteEl.classList.add('hidden');
+
+  const candidates = [primarySrc, ...(fallbacks || [])].filter(Boolean);
+  const uniqueCandidates = [...new Set(candidates)];
+  let candidateIdx = 0;
+
+  function tryNext() {
+    if (candidateIdx < uniqueCandidates.length) {
+      const candidateUrl = uniqueCandidates[candidateIdx++];
+      imgEl.src = candidateUrl;
+    } else {
+      if (fallbackNoteEl) {
+        fallbackNoteEl.classList.remove('hidden');
+      }
+    }
+  }
+
+  imgEl.onerror = () => {
+    tryNext();
+  };
+
+  imgEl.onload = () => {
+    imgEl.onerror = null;
+    if (fallbackNoteEl) fallbackNoteEl.classList.add('hidden');
+  };
+
+  tryNext();
+}
+
+function showGallerySlide(index) {
+  if (!currentGalleryImages || currentGalleryImages.length === 0) return;
+  if (index < 0) index = currentGalleryImages.length - 1;
+  if (index >= currentGalleryImages.length) index = 0;
+  currentGalleryIndex = index;
+
+  const item = currentGalleryImages[index];
+
+  if (galleryCounter) {
+    galleryCounter.textContent = `${index + 1} / ${currentGalleryImages.length}`;
+  }
+
+  loadImageWithFallbacks(
+    galleryImg,
+    item.src,
+    item.fallbacks,
+    item.alt,
+    galleryImgFallbackNote
+  );
+
+  if (galleryCaption) {
+    galleryCaption.innerHTML = formatCaptionText(item.caption);
+  }
+
+  if (galleryDots) {
+    const dots = galleryDots.querySelectorAll('.gallery-dot');
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === index);
+    });
+  }
+
+  if (galleryThumbs) {
+    const thumbs = galleryThumbs.querySelectorAll('.gallery-thumb-item');
+    thumbs.forEach((th, idx) => {
+      th.classList.toggle('active', idx === index);
+    });
+  }
+}
+
+function renderGalleryDots() {
+  if (!galleryDots) return;
+  galleryDots.innerHTML = '';
+  currentGalleryImages.forEach((_, idx) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = `gallery-dot ${idx === 0 ? 'active' : ''}`;
+    dot.setAttribute('aria-label', `Xem ảnh ${idx + 1}`);
+    dot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showGallerySlide(idx);
+    });
+    dot.addEventListener('pointerdown', (e) => e.stopPropagation());
+    galleryDots.appendChild(dot);
+  });
+}
+
+function renderGalleryThumbs() {
+  if (!galleryThumbs) return;
+  galleryThumbs.innerHTML = '';
+  currentGalleryImages.forEach((imgItem, idx) => {
+    const thumbBtn = document.createElement('button');
+    thumbBtn.type = 'button';
+    thumbBtn.className = `gallery-thumb-item ${idx === 0 ? 'active' : ''}`;
+    thumbBtn.setAttribute('aria-label', `Chọn ảnh ${idx + 1}`);
+
+    const thumbImg = document.createElement('img');
+    thumbImg.loading = 'lazy';
+    thumbImg.alt = imgItem.title || `Ảnh ${idx + 1}`;
+    loadImageWithFallbacks(thumbImg, imgItem.src, imgItem.fallbacks, thumbImg.alt, null);
+
+    const label = document.createElement('span');
+    label.className = 'gallery-thumb-label';
+    label.textContent = imgItem.title || `Hình ${idx + 1}`;
+
+    thumbBtn.appendChild(thumbImg);
+    thumbBtn.appendChild(label);
+
+    thumbBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showGallerySlide(idx);
+    });
+    thumbBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    galleryThumbs.appendChild(thumbBtn);
+  });
+}
+
+function setupGallery(images) {
+  if (!images || images.length === 0) {
+    if (modalGallery) modalGallery.classList.add('hidden');
+    currentGalleryImages = [];
+    currentGalleryIndex = 0;
+    return;
+  }
+
+  currentGalleryImages = images;
+  currentGalleryIndex = 0;
+  if (modalGallery) modalGallery.classList.remove('hidden');
+
+  renderGalleryDots();
+  renderGalleryThumbs();
+  showGallerySlide(0);
+}
+
+function openLightbox(imgSrc, captionText) {
+  if (!imageLightbox) return;
+  if (lightboxImg) lightboxImg.src = imgSrc;
+  if (lightboxCaption) lightboxCaption.innerHTML = formatCaptionText(captionText);
+  imageLightbox.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  if (!imageLightbox) return;
+  imageLightbox.classList.add('hidden');
+}
+
+// Lightbox listeners
+if (btnCloseLightbox) {
+  btnCloseLightbox.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeLightbox();
+  });
+}
+if (lightboxBackdrop) {
+  lightboxBackdrop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeLightbox();
+  });
+}
+if (galleryImgBox) {
+  galleryImgBox.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (currentGalleryImages && currentGalleryImages[currentGalleryIndex]) {
+      const activeItem = currentGalleryImages[currentGalleryIndex];
+      openLightbox(galleryImg ? galleryImg.src : activeItem.src, activeItem.caption);
+    }
+  });
+  galleryImgBox.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
+if (btnGalleryPrev) {
+  btnGalleryPrev.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showGallerySlide(currentGalleryIndex - 1);
+  });
+  btnGalleryPrev.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
+if (btnGalleryNext) {
+  btnGalleryNext.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showGallerySlide(currentGalleryIndex + 1);
+  });
+  btnGalleryNext.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
 function openInteractableModal(item) {
   const firstVisit = !item.visited;
   item.visited = true;
@@ -735,12 +951,13 @@ function openInteractableModal(item) {
     tag: `${ACTS[item.act - 1].period} • ${item.tag}`,
     title: item.title,
     content: item.content,
+    images: item.images || null,
   });
 
   updateObjectiveChecklist();
 }
 
-function openStoryModal({ tag, title, content, note = null }) {
+function openStoryModal({ tag, title, content, note = null, images = null }) {
   if (modalState.timerId) clearInterval(modalState.timerId);
 
   modalState.open = true;
@@ -761,6 +978,8 @@ function openStoryModal({ tag, title, content, note = null }) {
     modalNote.textContent = '';
     modalNote.classList.add('hidden');
   }
+
+  setupGallery(images);
 
   modalHint.innerHTML = isMobileMode
     ? 'Chạm vào hộp thoại để hiện nhanh toàn bộ nội dung'
@@ -803,8 +1022,12 @@ function closeStoryModal() {
     clearInterval(modalState.timerId);
     modalState.timerId = null;
   }
+  closeLightbox();
   modalState.open = false;
   storyModal.classList.add('hidden');
+  if (modalGallery) modalGallery.classList.add('hidden');
+  currentGalleryImages = [];
+  currentGalleryIndex = 0;
   canvas.classList.remove('canvas-blurred');
   syncTouchControlsVisibility();
 }
@@ -1436,11 +1659,13 @@ btnCloseModal.addEventListener('click', (e) => {
 
 storyModal.addEventListener('pointerdown', (e) => {
   if (btnCloseModal.contains(e.target)) return;
+  if (modalGallery && modalGallery.contains(e.target)) return;
   modalPointerDownPos = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
 });
 
 storyModal.addEventListener('pointerup', (e) => {
   if (!modalState.open || btnCloseModal.contains(e.target)) return;
+  if (modalGallery && modalGallery.contains(e.target)) return;
   if (!modalPointerDownPos || modalPointerDownPos.pointerId !== e.pointerId) return;
 
   const movedDist = Math.hypot(
@@ -1580,6 +1805,11 @@ window.addEventListener('keydown', (e) => {
 
   if (e.code === 'Escape') {
     closeChapterDrawer();
+    if (imageLightbox && !imageLightbox.classList.contains('hidden')) {
+      e.preventDefault();
+      closeLightbox();
+      return;
+    }
     if (modalState.open) {
       e.preventDefault();
       closeStoryModal();
@@ -1593,6 +1823,23 @@ window.addEventListener('keydown', (e) => {
   }
 
   if (modalState.open) {
+    if (imageLightbox && !imageLightbox.classList.contains('hidden')) {
+      if (e.code === 'Space' || e.code === 'KeyE') {
+        e.preventDefault();
+        closeLightbox();
+        return;
+      }
+    }
+    if (e.code === 'ArrowLeft' && currentGalleryImages.length > 0) {
+      e.preventDefault();
+      showGallerySlide(currentGalleryIndex - 1);
+      return;
+    }
+    if (e.code === 'ArrowRight' && currentGalleryImages.length > 0) {
+      e.preventDefault();
+      showGallerySlide(currentGalleryIndex + 1);
+      return;
+    }
     if (e.code === 'Space') {
       e.preventDefault();
       if (!modalState.typingDone) finishTypewriterImmediately();
