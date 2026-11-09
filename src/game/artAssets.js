@@ -3476,20 +3476,17 @@ export function drawWavingVietnamSkyFlag(
   const sunX = width * 0.72;
   const sunY = baseGroundY * 0.3;
 
-  // Kích thước lá cờ tỷ lệ chuẩn 3:2, đặt ở không gian 2/3 bên trái bầu trời
-  const flagW = Math.min(238, Math.max(162, width * 0.205));
-  const flagH = flagW * 0.66;
+  // Kích thước lá cờ to rộng hùng tráng phủ kín 2/3 background phía bên trái
+  const flagW = Math.max(280, width * 0.62);
+  const flagH = flagW * 0.62;
 
-  // Tâm ngang nằm ở bầu trời bên trái (đối xứng hài hòa với Mặt trời ở bên phải), có parallax bầu trời rất nhẹ (0.06x)
-  const skyParallaxShift = (finaleWorldX - sunX - cameraX) * 0.06;
-  const flagCenterX = Math.max(
-    width * 0.28,
-    Math.min(width * 0.44, width * 0.37 + skyParallaxShift)
-  );
-  const flagLeft = flagCenterX - flagW * 0.5;
+  // Căn mép trái bắt đầu từ góc trái màn hình (có parallax bầu trời rất nhẹ), bao phủ trọn vẹn 2/3 không gian bên trái
+  const skyParallaxShift = (finaleWorldX - sunX - cameraX) * 0.04;
+  const flagLeft = Math.min(width * 0.05, Math.max(-width * 0.1, width * 0.02 + skyParallaxShift));
+  const flagCenterX = flagLeft + flagW * 0.5;
 
-  // Tâm dọc nằm CÙNG TẦNG ĐỘ CAO (sunY = baseGroundY * 0.3) với Mặt trời bình minh, giữ khoảng cách an toàn dưới Top HUD
-  const flagTop = Math.max(92, sunY - flagH * 0.5);
+  // Tâm dọc nằm CÙNG TẦNG ĐỘ CAO (sunY = baseGroundY * 0.3) với Mặt trời bình minh
+  const flagTop = Math.max(40, sunY - flagH * 0.52);
 
   // Hàm sóng kép thời gian thực (u chạy từ 0 đến 1 từ mép trái sang mép phải lá cờ)
   const sampleWaveY = (u) =>
