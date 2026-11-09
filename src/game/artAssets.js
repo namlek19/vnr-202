@@ -3469,29 +3469,27 @@ export function drawWavingVietnamSkyFlag(
   const clampedProgress = Math.max(0, Math.min(1, progress || 0));
   if (clampedProgress <= 0.01) return;
 
-  const monumentSx = finaleWorldX - cameraX;
-  if (monumentSx < -200 || monumentSx > width + 420) return;
-
-  // Độ trong suốt tối đa đạt 0.82 hòa quyện vào nền trời bình minh
+  // Độ trong suốt tối đa đạt 0.82 hòa quyện vào nền trời bình minh (cùng tầng background với Mặt trời)
   const flagAlpha = clampedProgress * 0.82;
 
+  // Tọa độ Mặt trời bình minh ở tầng Sky Background (drawSky: sx = width * 0.72, sy = baseGroundY * 0.3)
+  const sunX = width * 0.72;
+  const sunY = baseGroundY * 0.3;
+
   // Kích thước lá cờ tỷ lệ chuẩn 3:2, đặt ở không gian 2/3 bên trái bầu trời
-  const flagW = Math.min(246, Math.max(168, width * 0.215));
+  const flagW = Math.min(238, Math.max(162, width * 0.205));
   const flagH = flagW * 0.66;
 
-  // Tâm ngang nằm bên trái Đài tưởng niệm, cân đối ở khoảng 1/3 - 2/5 bên trái màn hình
-  const idealCenterX = monumentSx - Math.min(410, Math.max(270, width * 0.34));
+  // Tâm ngang nằm ở bầu trời bên trái (đối xứng hài hòa với Mặt trời ở bên phải), có parallax bầu trời rất nhẹ (0.06x)
+  const skyParallaxShift = (finaleWorldX - sunX - cameraX) * 0.06;
   const flagCenterX = Math.max(
-    width * 0.22 + flagW * 0.5,
-    Math.min(monumentSx - 215, idealCenterX)
+    width * 0.28,
+    Math.min(width * 0.44, width * 0.37 + skyParallaxShift)
   );
   const flagLeft = flagCenterX - flagW * 0.5;
 
-  // Tâm dọc nằm phía trên đường tàu Metro (baseGroundY - 172) và dưới thanh thông báo Top HUD
-  const metroClearanceBottomY = baseGroundY - 186;
-  const idealTopY = metroClearanceBottomY - flagH;
-  const minSafeTopY = Math.max(96, baseGroundY - 365);
-  const flagTop = Math.max(minSafeTopY, Math.min(metroClearanceBottomY - flagH, idealTopY));
+  // Tâm dọc nằm CÙNG TẦNG ĐỘ CAO (sunY = baseGroundY * 0.3) với Mặt trời bình minh, giữ khoảng cách an toàn dưới Top HUD
+  const flagTop = Math.max(92, sunY - flagH * 0.5);
 
   // Hàm sóng kép thời gian thực (u chạy từ 0 đến 1 từ mép trái sang mép phải lá cờ)
   const sampleWaveY = (u) =>
@@ -3663,10 +3661,13 @@ export function drawWavingVietnamSkyFlag(
   ctx.stroke();
   ctx.restore();
 
-  // 5. Các hạt sáng vàng nhỏ bay nhẹ từ đuôi lá cờ sang phía Đài tưởng niệm
+  // 5. Các hạt sáng vàng nhỏ bay nhẹ từ đuôi lá cờ sang phía Mặt trời & Đài tưởng niệm
   const sparkCount = 11;
   const tailX = flagLeft + flagW;
-  const spanToMonument = Math.max(90, monumentSx - 90 - tailX);
+  const monumentSx = finaleWorldX - cameraX;
+  const targetRightX =
+    monumentSx > tailX + 80 && monumentSx < width + 180 ? monumentSx - 70 : sunX - 30;
+  const spanToMonument = Math.max(90, targetRightX - tailX);
   for (let p = 0; p < sparkCount; p++) {
     const phase = (time * 0.36 + p * (1 / sparkCount)) % 1;
     const px = tailX - 10 + phase * spanToMonument;

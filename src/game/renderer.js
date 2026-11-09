@@ -141,8 +141,19 @@ export class WorldRenderer {
       ctx.translate(0, -cameraY);
     }
 
-    // 1. Atmospheric Sky + Moon / Dawn Sun (STRICTLY PRESERVED)
-    this.drawSky(ctx, act, width, height, baseGroundY, player.x, palette, cameraY);
+    // 1. Atmospheric Sky + Moon / Dawn Sun + Background Waving Vietnam Flag (STRICTLY PRESERVED)
+    this.drawSky(
+      ctx,
+      act,
+      width,
+      height,
+      baseGroundY,
+      player.x,
+      palette,
+      cameraY,
+      cameraX,
+      finaleState
+    );
 
     // 2. Far Horizon Parallax (0.16x): Mountain Ridges / Modern Skyline & Multi-Span Cable Bridge
     this.drawFarLayer(ctx, act, width, baseGroundY, cameraX, palette);
@@ -195,24 +206,8 @@ export class WorldRenderer {
     // 9. Waiting Successor at End of Act 2 & Act 3 (localX = 2860)
     this.drawWaitingSuccessor(ctx, act, getGroundY, cameraX, transitionState);
 
-    // 10. Waving Vietnam Flag in the Left 2/3 Sky & Six Fallen Comrades Saluting Around the Monument (Act 4 Finale)
+    // 10. Six Fallen Comrades Saluting Around the Monument (Act 4 Finale)
     if (act === 4) {
-      const flagSyncProgress = Math.max(
-        finaleState.spiritsAlpha || 0,
-        finaleState.holdProgress || 0
-      );
-      if (flagSyncProgress > 0.01) {
-        drawWavingVietnamSkyFlag(
-          ctx,
-          cameraX,
-          width,
-          baseGroundY,
-          FINALE_EVENT.x,
-          flagSyncProgress,
-          this.time
-        );
-      }
-
       const saluteAlpha = Math.max(
         finaleState.spiritsAlpha,
         finaleState.holdProgress > 0.35 ? (finaleState.holdProgress - 0.35) * 0.65 : 0
@@ -283,7 +278,18 @@ export class WorldRenderer {
     }
   }
 
-  drawSky(ctx, act, width, height, baseGroundY, localX, palette, cameraY = 0) {
+  drawSky(
+    ctx,
+    act,
+    width,
+    height,
+    baseGroundY,
+    localX,
+    palette,
+    cameraY = 0,
+    cameraX = 0,
+    finaleState = null
+  ) {
     const grad = ctx.createLinearGradient(0, -cameraY - 120, 0, baseGroundY + 80);
     grad.addColorStop(0, palette.skyTop);
     grad.addColorStop(0.56, palette.skyMid);
@@ -355,6 +361,25 @@ export class WorldRenderer {
         ctx.fill();
       }
       ctx.restore();
+
+      // Waving Vietnam Flag on the exact same background sky layer & elevation as the Morning Sun
+      if (finaleState) {
+        const flagSyncProgress = Math.max(
+          finaleState.spiritsAlpha || 0,
+          finaleState.holdProgress || 0
+        );
+        if (flagSyncProgress > 0.01) {
+          drawWavingVietnamSkyFlag(
+            ctx,
+            cameraX,
+            width,
+            baseGroundY,
+            FINALE_EVENT.x,
+            flagSyncProgress,
+            this.time
+          );
+        }
+      }
     }
   }
 
