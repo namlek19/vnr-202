@@ -355,6 +355,24 @@ export const INTERACTABLES = [
     title: 'Bản Cương lĩnh trên bàn gỗ (Mốc 3/2/1930)',
     content:
       "Đầu năm 1930, tại Cửu Long (Hồng Kông), lãnh tụ Nguyễn Ái Quốc chủ trì Hội nghị hợp nhất các tổ chức cộng sản, thành lập Đảng Cộng sản Việt Nam (lấy ngày 3/2/1930 làm ngày kỷ niệm). Hội nghị thông qua Chánh cương vắn tắt và Sách lược vắn tắt — Cương lĩnh chính trị đầu tiên của Đảng, xác định nhiệm vụ chủ yếu trước mắt là: 'Đánh đổ đế quốc chủ nghĩa Pháp và bọn phong kiến, làm cho nước Nam được hoàn toàn độc lập', chấm dứt sự khủng hoảng về đường lối cứu nước.",
+    images: [
+      {
+        id: 'act1_item1_img1',
+        src: '/image/image%20copy%2012.png',
+        fallbacks: [
+          '/image/image%20copy%2012.png',
+          '/image/image copy 12.png',
+          '/audio/image/image%20copy%2012.png',
+          '/audio/image/image copy 12.png',
+          './image/image%20copy%2012.png',
+          './audio/image/image%20copy%2012.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Bản Cương lĩnh chính trị đầu tiên của Đảng (3/2/1930).\nBản thảo viết tay "Chánh cương vắn tắt của Đảng" và "Sách lược vắn tắt của Đảng" do lãnh tụ Nguyễn Ái Quốc soạn thảo, được thông qua tại Hội nghị thành lập Đảng Cộng sản Việt Nam.',
+        alt: 'Bản cương lĩnh chính trị đầu tiên của Đảng ngày 3/2/1930',
+      },
+    ],
   },
   {
     id: 'act1_item2',
@@ -368,6 +386,24 @@ export const INTERACTABLES = [
     title: 'Chủ trương thành lập Mặt trận Việt Minh (Mốc 5/1941)',
     content:
       "Trước cảnh nhân dân chịu cảnh 'một cổ hai tròng' Pháp - Nhật, tháng 5/1941, Nguyễn Ái Quốc chủ trì Hội nghị Trung ương lần thứ tám tại Cao Bằng, đặt nhiệm vụ giải phóng dân tộc lên hàng đầu: 'Trong lúc này quyền lợi của bộ phận, của giai cấp phải đặt dưới sự sinh tử, tồn vong của quốc gia, của dân tộc'. Hội nghị quyết định thành lập Mặt trận Việt Minh (ngày 19/5/1941), tập hợp rộng rãi mọi người dân có lòng yêu nước thương nòi cùng đứng lên giành độc lập, tự do.",
+    images: [
+      {
+        id: 'act1_item2_img1',
+        src: '/image/image%20copy%2013.png',
+        fallbacks: [
+          '/image/image%20copy%2013.png',
+          '/image/image copy 13.png',
+          '/audio/image/image%20copy%2013.png',
+          '/audio/image/image copy 13.png',
+          './image/image%20copy%2013.png',
+          './audio/image/image%20copy%2013.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Thành lập Mặt trận Việt Minh (5/1941) & Lực lượng vũ trang cách mạng.\nTháng 5/1941, Hội nghị Trung ương 8 quyết định thành lập Mặt trận Việt Minh, tập hợp rộng rãi các tầng lớp nhân dân chuẩn bị lực lượng chính trị và vũ trang tiến tới Tổng khởi nghĩa.',
+        alt: 'Thành lập Mặt trận Việt Minh tháng 5/1941',
+      },
+    ],
   },
   {
     id: 'act1_item3',
@@ -381,6 +417,24 @@ export const INTERACTABLES = [
     title: 'Chiếc xe bò bên kho thóc Nhật (Đầu năm 1945)',
     content:
       "Trong bối cảnh nạn đói cuối năm 1944 – đầu năm 1945 làm 2 triệu người dân chết đói, đêm 9/3/1945, Nhật nổ súng đảo chính lật đổ Pháp độc chiếm Đông Dương. Ngay ngày 12/3/1945, Ban Thường vụ Trung ương Đảng ra Chỉ thị 'Nhật - Pháp bắn nhau và hành động của chúng ta', phát động cao trào kháng Nhật cứu nước làm tiền đề cho tổng khởi nghĩa, với khẩu hiệu 'Phá kho thóc, giải quyết nạn đói' thổi bùng ngọn lửa đấu tranh trong quần chúng.",
+    images: [
+      {
+        id: 'act1_item3_img1',
+        src: '/image/image%20copy%2014.png',
+        fallbacks: [
+          '/image/image%20copy%2014.png',
+          '/image/image copy 14.png',
+          '/audio/image/image%20copy%2014.png',
+          '/audio/image/image copy 14.png',
+          './image/image%20copy%2014.png',
+          './audio/image/image%20copy%2014.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Nạn đói năm Ất Dậu 1945 & Phong trào "Phá kho thóc, giải quyết nạn đói".\nTư liệu lịch sử năm 1945 khắc họa thảm cảnh nạn đói khủng khiếp dưới ách thống trị Pháp - Nhật và khí thế quần chúng nhân dân vùng lên phá kho thóc Nhật cứu đói.',
+        alt: 'Xe bò cứu đói năm 1945',
+      },
+    ],
   },
 
   // ==================== MÀN 2 (localX: 0 - 3000) ====================
@@ -396,6 +450,24 @@ export const INTERACTABLES = [
     title: 'Hũ gạo tiết kiệm & Bảng đen Bình dân học vụ (1945 – 1946)',
     content:
       "Sau ngày độc lập, chính quyền cách mạng non trẻ đứng trước tình thế 'ngàn cân treo sợi tóc': ngân khố kiệt quệ, kho bạc trống rỗng, 95% dân số thất học, mù chữ, thù trong giặc ngoài bủa vây. Ngày 25/11/1945, Trung ương Đảng ra Chỉ thị 'Kháng chiến kiến quốc' với khẩu hiệu 'Dân tộc trên hết, Tổ quốc trên hết', đồng thời phát động diệt giặc đói, diệt giặc dốt, diệt giặc ngoại xâm và tổ chức thắng lợi cuộc Tổng tuyển cử đầu tiên ngày 6/1/1946.",
+    images: [
+      {
+        id: 'act2_item1_img1',
+        src: '/image/image%20copy%2016.png',
+        fallbacks: [
+          '/image/image%20copy%2016.png',
+          '/image/image copy 16.png',
+          '/audio/image/image%20copy%2016.png',
+          '/audio/image/image copy 16.png',
+          './image/image%20copy%2016.png',
+          './audio/image/image%20copy%2016.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Lớp học Bình dân học vụ năm 1945 – 1946.\nHưởng ứng lời kêu gọi chống nạn thất học ("Diệt giặc dốt") của Chủ tịch Hồ Chí Minh, hàng triệu đồng bào khắp cả nước hăng hái tham gia các lớp học xóa mù chữ dưới ánh đèn dầu.',
+        alt: 'Bình dân học vụ năm 1946',
+      },
+    ],
   },
   {
     id: 'act2_item2',
@@ -409,6 +481,24 @@ export const INTERACTABLES = [
     title: 'Chiếc loa truyền thanh trên chiến lũy Hà Nội (19/12/1946)',
     content:
       "Trước hành động bội ước và tối hậu thư của thực dân Pháp, ngày 19/12/1946, Chủ tịch Hồ Chí Minh ra Lời kêu gọi toàn quốc kháng chiến: 'Chúng ta muốn hòa bình, chúng ta phải nhân nhượng. Nhưng chúng ta càng nhân nhượng, thực dân Pháp càng lấn tới, vì chúng quyết tâm cướp nước ta lần nữa! Không! Chúng ta thà hy sinh tất cả, chứ nhất định không chịu mất nước, nhất định không chịu làm nô lệ'. Đường lối kháng chiến của Đảng được xác định: Toàn dân, toàn diện, lâu dài và dựa vào sức mình là chính.",
+    images: [
+      {
+        id: 'act2_item2_img1',
+        src: '/image/image%20copy%2017.png',
+        fallbacks: [
+          '/image/image%20copy%2017.png',
+          '/image/image copy 17.png',
+          '/audio/image/image%20copy%2017.png',
+          '/audio/image/image copy 17.png',
+          './image/image%20copy%2017.png',
+          './audio/image/image%20copy%2017.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Chủ tịch Hồ Chí Minh kêu gọi Toàn quốc kháng chiến (19/12/1946).\nNhân dân Thủ đô Hà Nội và cả nước tập trung lắng nghe Lời kêu gọi toàn quốc kháng chiến qua loa phóng thanh, nhất tề đứng lên với ý chí "Quyết tử để Tổ quốc quyết sinh".',
+        alt: 'Bác Hồ kêu gọi kháng chiến toàn quốc ngày 19/12/1946',
+      },
+    ],
   },
   {
     id: 'act2_item3',
@@ -422,6 +512,24 @@ export const INTERACTABLES = [
     title: 'Chiếc xe đạp thồ & Sơ đồ tác chiến Điện Biên Phủ (1953 – 1954)',
     content:
       "Được Mỹ viện trợ, thực dân Pháp đề ra Kế hoạch Nava, biến Điện Biên Phủ thành tập đoàn cứ điểm mạnh nhất Đông Dương — một 'pháo đài khổng lồ không thể công phá'. Tháng 12/1953, Bộ Chính trị quyết định mở Chiến dịch Điện Biên Phủ. Quán triệt phương châm 'đánh chắc, tiến chắc', 'đánh chắc thắng', toàn Đảng, toàn quân, toàn dân đã huy động hàng vạn ngày công, hàng vạn tấn lương thực, vũ khí ra tiền tuyến.",
+    images: [
+      {
+        id: 'act2_item3_img1',
+        src: '/image/image%20copy%2018.png',
+        fallbacks: [
+          '/image/image%20copy%2018.png',
+          '/image/image copy 18.png',
+          '/audio/image/image%20copy%2018.png',
+          '/audio/image/image copy 18.png',
+          './image/image%20copy%2018.png',
+          './audio/image/image%20copy%2018.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Đoàn xe đạp thồ chi viện cho Chiến dịch Điện Biên Phủ (1954).\nHàng vạn dân công hỏa tuyến dùng xe đạp thồ vượt đèo cao, suối sâu vận chuyển lương thực, đạn dược ra mặt trận với tinh thần "Tất cả cho tiền tuyến, tất cả để chiến thắng".',
+        alt: 'Chiếc xe thồ tại chiến dịch Điện Biên Phủ',
+      },
+    ],
   },
 
   // ==================== MÀN 3 (localX: 0 - 3000) ====================
@@ -437,6 +545,40 @@ export const INTERACTABLES = [
     title: 'Bức thư nhà bên bếp lửa Trường Sơn (Mốc Đại hội III – 9/1960)',
     content:
       "Sau Hiệp định Giơnevơ (7/1954), đất nước tạm thời bị chia cắt ở vĩ tuyến 17; đế quốc Mỹ thay chân Pháp dựng lên chính quyền tay sai Ngô Đình Diệm, áp đặt chủ nghĩa thực dân mới ở miền Nam nhằm chia cắt lâu dài nước ta. Tháng 9/1960, Đại hội đại biểu toàn quốc lần thứ III của Đảng đề ra đường lối tiến hành đồng thời hai chiến lược cách mạng: cách mạng xã hội chủ nghĩa ở miền Bắc và cách mạng dân tộc dân chủ nhân dân ở miền Nam; xây dựng miền Bắc thành hậu phương lớn chi viện cho tiền tuyến lớn miền Nam để thống nhất Tổ quốc.",
+    images: [
+      {
+        id: 'act3_item1_img1',
+        src: '/image/image%20copy%208.png',
+        fallbacks: [
+          '/image/image%20copy%208.png',
+          '/image/image copy 8.png',
+          '/audio/image/image%20copy%208.png',
+          '/audio/image/image copy 8.png',
+          './image/image%20copy%208.png',
+          './audio/image/image%20copy%208.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Đại hội đại biểu toàn quốc lần thứ III của Đảng vào tháng 9 năm 1960.\nChủ tịch Hồ Chí Minh đọc Diễn văn khai mạc Đại hội, đề ra đường lối chiến lược cách mạng cho cả hai miền Nam – Bắc.',
+        alt: 'Đại hội đại biểu toàn quốc lần thứ III của Đảng vào tháng 9 năm 1960',
+      },
+      {
+        id: 'act3_item1_img2',
+        src: '/image/image%20copy%209.png',
+        fallbacks: [
+          '/image/image%20copy%209.png',
+          '/image/image copy 9.png',
+          '/audio/image/image%20copy%209.png',
+          '/audio/image/image copy 9.png',
+          './image/image%20copy%209.png',
+          './audio/image/image%20copy%209.png',
+        ],
+        title: 'Hình 2',
+        caption:
+          'Hình 2: Toàn cảnh Hội nghị Hiệp định Giơ-ne-vơ năm 1954 về lập lại hòa bình ở Đông Dương.\nSau Hiệp định Giơ-ne-vơ (7/1954), đất nước tạm thời bị chia cắt ở vĩ tuyến 17.',
+        alt: 'Hiệp định Giơ-ne-vơ năm 1954 mốc Đại hội đại biểu toàn quốc lần thứ III của Đảng vào tháng 9 năm 1960',
+      },
+    ],
   },
   {
     id: 'act3_item2',
@@ -450,6 +592,40 @@ export const INTERACTABLES = [
     title: 'Chiếc radio bán dẫn & Cột mốc Trường Sơn (1965 – 1973)',
     content:
       "Đương đầu với các chiến lược chiến tranh xâm lược tàn bạo của đế quốc Mỹ cùng các trang bị vũ khí, công nghệ hiện đại bậc nhất, dưới sự lãnh đạo kiên trì và đúng đắn của Đảng, quân và dân hai miền Nam – Bắc giữ vững chân lý 'Không có gì quý hơn độc lập, tự do', vượt qua mọi thách thức hiểm nghèo, từng bước đánh bại các kế hoạch chiến tranh của địch, tạo thế và lực tiến tới ngày toàn thắng.",
+    images: [
+      {
+        id: 'act3_item2_img1',
+        src: '/image/image%20copy%2010.png',
+        fallbacks: [
+          '/image/image%20copy%2010.png',
+          '/image/image copy 10.png',
+          '/audio/image/image%20copy%2010.png',
+          '/audio/image/image copy 10.png',
+          './image/image%20copy%2010.png',
+          './audio/image/image%20copy%2010.png',
+        ],
+        title: 'Hình 1',
+        caption:
+          'Hình 1: Tuyến vận tải quân sự chiến lược đường Trường Sơn (Đường Hồ Chí Minh).\nĐoàn xe vận tải chi viện vũ khí, lương thực cho tiền tuyến miền Nam với tinh thần "Xẻ dọc Trường Sơn đi cứu nước".',
+        alt: 'Đoàn xe vận tải quân sự trên đường Trường Sơn',
+      },
+      {
+        id: 'act3_item2_img2',
+        src: '/image/image%20copy%2011.png',
+        fallbacks: [
+          '/image/image%20copy%2011.png',
+          '/image/image copy 11.png',
+          '/audio/image/image%20copy%2011.png',
+          '/audio/image/image copy 11.png',
+          './image/image%20copy%2011.png',
+          './audio/image/image%20copy%2011.png',
+        ],
+        title: 'Hình 2',
+        caption:
+          'Hình 2: Xe tăng 390 húc đổ cổng chính Dinh Độc Lập trưa ngày 30/4/1975.\nĐại thắng mùa Xuân 1975, giải phóng hoàn toàn miền Nam, thống nhất non sông đất nước.',
+        alt: 'Xe tăng 390 húc đổ cổng Dinh Độc Lập ngày 30/4/1975',
+      },
+    ],
   },
 
   // ==================== MÀN 4 (localX: 0 - 3000) ====================
@@ -664,6 +840,24 @@ export const QTE_ZONES = [
       quote:
         '“Nước Việt Nam có quyền hưởng tự do và độc lập, và sự thực đã thành một nước tự do và độc lập.”',
       note: 'Thắng lợi của Cách mạng Tháng Tám năm 1945 đã đập tan xiềng xích thực dân - phong kiến, mở ra kỷ nguyên Độc lập - Tự do cho dân tộc Việt Nam.',
+      images: [
+        {
+          id: 'act1_finale_img1',
+          src: '/image/image%20copy%2015.png',
+          fallbacks: [
+            '/image/image%20copy%2015.png',
+            '/image/image copy 15.png',
+            '/audio/image/image%20copy%2015.png',
+            '/audio/image/image copy 15.png',
+            './image/image%20copy%2015.png',
+            './audio/image/image%20copy%2015.png',
+          ],
+          title: 'Hình 1',
+          caption:
+            'Hình 1: Chủ tịch Hồ Chí Minh đọc Bản Tuyên ngôn Độc lập ngày 2/9/1945.\nTại Quảng trường Ba Đình lịch sử, Chủ tịch Hồ Chí Minh thay mặt Chính phủ lâm thời đọc Bản Tuyên ngôn Độc lập, trịnh trọng tuyên bố trước quốc dân đồng bào và thế giới khai sinh nước Việt Nam Dân chủ Cộng hòa.',
+          alt: 'Bác Hồ đọc bản Tuyên ngôn Độc lập ngày 2/9/1945 tại Quảng trường Ba Đình',
+        },
+      ],
     },
   },
 
@@ -714,6 +908,24 @@ export const QTE_ZONES = [
       quote:
         "Chiến thắng Điện Biên Phủ 'chấn động địa cầu' đã buộc thực dân Pháp phải ký Hiệp định Giơnevơ (21/7/1954) — văn bản pháp lý quốc tế đầu tiên công nhận các quyền dân tộc cơ bản của Việt Nam là độc lập, chủ quyền, thống nhất và toàn vẹn lãnh thổ, giải phóng hoàn toàn miền Bắc.",
       note: null,
+      images: [
+        {
+          id: 'act2_finale_img1',
+          src: '/image/image%20copy%2019.png',
+          fallbacks: [
+            '/image/image%20copy%2019.png',
+            '/image/image copy 19.png',
+            '/audio/image/image%20copy%2019.png',
+            '/audio/image/image copy 19.png',
+            './image/image%20copy%2019.png',
+            './audio/image/image%20copy%2019.png',
+          ],
+          title: 'Hình 1',
+          caption:
+            'Hình 1: Lá cờ "Quyết chiến Quyết thắng" tung bay trên nóc hầm tướng Đờ Cát-tơ-ri (7/5/1954).\n17 giờ 30 phút chiều ngày 7/5/1954, chiến dịch Điện Biên Phủ toàn thắng "lừng lẫy năm châu, chấn động địa cầu", buộc thực dân Pháp phải ký Hiệp định Giơ-ne-vơ.',
+          alt: 'Chiến thắng Điện Biên Phủ ngày 7/5/1954',
+        },
+      ],
     },
   },
 
