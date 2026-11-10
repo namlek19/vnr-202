@@ -71,21 +71,17 @@ const btnCloseModal = document.getElementById('btn-close-modal');
 
 // Historical Images Gallery & Lightbox DOM Elements
 const modalGallery = document.getElementById('modal-gallery');
-const galleryCounter = document.getElementById('gallery-counter');
-const btnGalleryPrev = document.getElementById('btn-gallery-prev');
-const btnGalleryNext = document.getElementById('btn-gallery-next');
-const galleryImgBox = document.getElementById('gallery-img-box');
-const galleryImg = document.getElementById('gallery-img');
-const galleryImgFallbackNote = document.getElementById('gallery-img-fallback-note');
-const galleryCaption = document.getElementById('gallery-caption');
-const galleryDots = document.getElementById('gallery-dots');
-const galleryThumbs = document.getElementById('gallery-thumbs');
+const galleryMarqueeTrack = document.getElementById('gallery-marquee-track');
 
 const imageLightbox = document.getElementById('image-lightbox');
 const lightboxBackdrop = document.getElementById('lightbox-backdrop');
+const lightboxCard = document.getElementById('lightbox-card');
 const btnCloseLightbox = document.getElementById('btn-close-lightbox');
 const lightboxImg = document.getElementById('lightbox-img');
+const lightboxBadge = document.getElementById('lightbox-badge');
+const lightboxTitle = document.getElementById('lightbox-title');
 const lightboxCaption = document.getElementById('lightbox-caption');
+const lightboxTypeHint = document.getElementById('lightbox-type-hint');
 
 const finaleOverlay = document.getElementById('finale-overlay');
 const finaleQuoteText = document.getElementById('finale-quote-text');
@@ -732,6 +728,13 @@ function updateVovBroadcastHud() {
 let currentGalleryImages = [];
 let currentGalleryIndex = 0;
 
+const lightboxTypeState = {
+  timerId: null,
+  fullText: '',
+  charIndex: 0,
+  typingDone: true,
+};
+
 function formatCaptionText(text) {
   if (!text) return '';
   return text
@@ -771,96 +774,10 @@ function loadImageWithFallbacks(imgEl, primarySrc, fallbacks, altText, fallbackN
   tryNext();
 }
 
-function showGallerySlide(index) {
-  if (!currentGalleryImages || currentGalleryImages.length === 0) return;
-  if (index < 0) index = currentGalleryImages.length - 1;
-  if (index >= currentGalleryImages.length) index = 0;
-  currentGalleryIndex = index;
-
-  const item = currentGalleryImages[index];
-
-  if (galleryCounter) {
-    galleryCounter.textContent = `${index + 1} / ${currentGalleryImages.length}`;
-  }
-
-  loadImageWithFallbacks(
-    galleryImg,
-    item.src,
-    item.fallbacks,
-    item.alt,
-    galleryImgFallbackNote
-  );
-
-  if (galleryCaption) {
-    galleryCaption.innerHTML = formatCaptionText(item.caption);
-  }
-
-  if (galleryDots) {
-    const dots = galleryDots.querySelectorAll('.gallery-dot');
-    dots.forEach((dot, idx) => {
-      dot.classList.toggle('active', idx === index);
-    });
-  }
-
-  if (galleryThumbs) {
-    const thumbs = galleryThumbs.querySelectorAll('.gallery-thumb-item');
-    thumbs.forEach((th, idx) => {
-      th.classList.toggle('active', idx === index);
-    });
-  }
-}
-
-function renderGalleryDots() {
-  if (!galleryDots) return;
-  galleryDots.innerHTML = '';
-  currentGalleryImages.forEach((_, idx) => {
-    const dot = document.createElement('button');
-    dot.type = 'button';
-    dot.className = `gallery-dot ${idx === 0 ? 'active' : ''}`;
-    dot.setAttribute('aria-label', `Xem ảnh ${idx + 1}`);
-    dot.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showGallerySlide(idx);
-    });
-    dot.addEventListener('pointerdown', (e) => e.stopPropagation());
-    galleryDots.appendChild(dot);
-  });
-}
-
-function renderGalleryThumbs() {
-  if (!galleryThumbs) return;
-  galleryThumbs.innerHTML = '';
-  currentGalleryImages.forEach((imgItem, idx) => {
-    const thumbBtn = document.createElement('button');
-    thumbBtn.type = 'button';
-    thumbBtn.className = `gallery-thumb-item ${idx === 0 ? 'active' : ''}`;
-    thumbBtn.setAttribute('aria-label', `Chọn ảnh ${idx + 1}`);
-
-    const thumbImg = document.createElement('img');
-    thumbImg.loading = 'lazy';
-    thumbImg.alt = imgItem.title || `Ảnh ${idx + 1}`;
-    loadImageWithFallbacks(thumbImg, imgItem.src, imgItem.fallbacks, thumbImg.alt, null);
-
-    const label = document.createElement('span');
-    label.className = 'gallery-thumb-label';
-    label.textContent = imgItem.title || `Hình ${idx + 1}`;
-
-    thumbBtn.appendChild(thumbImg);
-    thumbBtn.appendChild(label);
-
-    thumbBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showGallerySlide(idx);
-    });
-    thumbBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-
-    galleryThumbs.appendChild(thumbBtn);
-  });
-}
-
 function setupGallery(images) {
   if (!images || images.length === 0) {
     if (modalGallery) modalGallery.classList.add('hidden');
+    if (galleryMarqueeTrack) galleryMarqueeTrack.innerHTML = '';
     currentGalleryImages = [];
     currentGalleryIndex = 0;
     return;
@@ -869,62 +786,171 @@ function setupGallery(images) {
   currentGalleryImages = images;
   currentGalleryIndex = 0;
   if (modalGallery) modalGallery.classList.remove('hidden');
+  if (!galleryMarqueeTrack) return;
 
-  renderGalleryDots();
-  renderGalleryThumbs();
-  showGallerySlide(0);
+  galleryMarqueeTrack.innerHTML = '';
+
+  // Tạo danh sách nhân đôi liền mạch để chạy vòng tròn vô tận từ phải qua trái (-50%)
+  const halfSet = [];
+  const minHalfCount = Math.max(6, images.length * 2);
+  while (halfSet.length < minHalfCount) {
+    for (let i = 0; i < images.length; i++) {
+      halfSet.push({ item: images[i], originalIdx: i });
+    }
+  }
+  const seamlessLoopList = [...halfSet, ...halfSet];
+
+  seamlessLoopList.forEach(({ item, originalIdx }) => {
+    const cardBtn = document.createElement('button');
+    cardBtn.type = 'button';
+    cardBtn.className = 'gallery-marquee-card';
+    cardBtn.setAttribute('aria-label', `Phóng to xem chi tiết ${item.title || `Hình ${originalIdx + 1}`}`);
+
+    const imgEl = document.createElement('img');
+    imgEl.loading = 'eager';
+    loadImageWithFallbacks(imgEl, item.src, item.fallbacks, item.alt || item.title, null);
+
+    const zoomOverlay = document.createElement('div');
+    zoomOverlay.className = 'gallery-marquee-zoom-icon';
+    zoomOverlay.innerHTML = '<span class="gallery-marquee-zoom-pill">🔍 Xem chi tiết</span>';
+
+    cardBtn.appendChild(imgEl);
+    cardBtn.appendChild(zoomOverlay);
+
+    cardBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    cardBtn.addEventListener('pointerup', (e) => e.stopPropagation());
+    cardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openLightboxForIndex(originalIdx);
+    });
+
+    galleryMarqueeTrack.appendChild(cardBtn);
+  });
 }
 
-function openLightbox(imgSrc, captionText) {
-  if (!imageLightbox) return;
-  if (lightboxImg) lightboxImg.src = imgSrc;
-  if (lightboxCaption) lightboxCaption.innerHTML = formatCaptionText(captionText);
+function finishLightboxTypewriterImmediately() {
+  if (lightboxTypeState.timerId) {
+    clearInterval(lightboxTypeState.timerId);
+    lightboxTypeState.timerId = null;
+  }
+  lightboxTypeState.charIndex = lightboxTypeState.fullText.length;
+  lightboxTypeState.typingDone = true;
+  if (lightboxCaption) {
+    lightboxCaption.innerHTML = formatCaptionText(lightboxTypeState.fullText);
+    lightboxCaption.classList.remove('typing');
+  }
+  if (lightboxTypeHint) {
+    lightboxTypeHint.innerHTML = isMobileMode
+      ? 'Bấm ✕ hoặc chạm ra ngoài để quay lại'
+      : 'Ấn <kbd>SPACE</kbd> / <kbd>ESC</kbd> hoặc bấm ✕ để quay lại';
+  }
+}
+
+function openLightboxForIndex(index) {
+  if (!imageLightbox || !currentGalleryImages || currentGalleryImages.length === 0) return;
+  if (index < 0) index = currentGalleryImages.length - 1;
+  if (index >= currentGalleryImages.length) index = 0;
+  currentGalleryIndex = index;
+
+  const item = currentGalleryImages[index];
+  if (!item) return;
+
+  if (lightboxTypeState.timerId) {
+    clearInterval(lightboxTypeState.timerId);
+    lightboxTypeState.timerId = null;
+  }
+
+  if (lightboxImg) {
+    loadImageWithFallbacks(lightboxImg, item.src, item.fallbacks, item.alt || item.title, null);
+  }
+
+  if (lightboxBadge) {
+    lightboxBadge.textContent = `HÌNH ẢNH TƯ LIỆU • ${index + 1} / ${currentGalleryImages.length}`;
+  }
+
+  if (lightboxTitle) {
+    lightboxTitle.textContent = '';
+    lightboxTitle.classList.add('hidden');
+  }
+
+  const rawCaption = item.caption || item.title || '';
+  lightboxTypeState.fullText = rawCaption;
+  lightboxTypeState.charIndex = 0;
+  lightboxTypeState.typingDone = false;
+
+  if (lightboxCaption) {
+    lightboxCaption.textContent = '';
+    lightboxCaption.classList.add('typing');
+  }
+
+  if (lightboxTypeHint) {
+    lightboxTypeHint.innerHTML = isMobileMode
+      ? 'Chạm vào khung chữ để hiện nhanh • Bấm ✕ để đóng'
+      : 'Ấn <kbd>SPACE</kbd> hiện nhanh • Ấn <kbd>ESC</kbd> hoặc ✕ để đóng';
+  }
+
   imageLightbox.classList.remove('hidden');
+  sound.playModalOpen();
+
+  lightboxTypeState.timerId = setInterval(() => {
+    if (isPortraitPaused) return;
+    if (lightboxTypeState.charIndex < lightboxTypeState.fullText.length) {
+      lightboxTypeState.charIndex = Math.min(
+        lightboxTypeState.fullText.length,
+        lightboxTypeState.charIndex + 1
+      );
+      if (lightboxCaption) {
+        lightboxCaption.textContent = lightboxTypeState.fullText.slice(
+          0,
+          lightboxTypeState.charIndex
+        );
+      }
+      if (lightboxTypeState.charIndex % 2 === 1) {
+        sound.playTypewriter();
+      }
+    } else {
+      finishLightboxTypewriterImmediately();
+    }
+  }, 24);
 }
 
 function closeLightbox() {
+  if (lightboxTypeState.timerId) {
+    clearInterval(lightboxTypeState.timerId);
+    lightboxTypeState.timerId = null;
+  }
+  lightboxTypeState.typingDone = true;
+  if (lightboxCaption) {
+    lightboxCaption.classList.remove('typing');
+  }
   if (!imageLightbox) return;
   imageLightbox.classList.add('hidden');
 }
 
 // Lightbox listeners
 if (btnCloseLightbox) {
+  btnCloseLightbox.addEventListener('pointerdown', (e) => e.stopPropagation());
   btnCloseLightbox.addEventListener('click', (e) => {
     e.stopPropagation();
     closeLightbox();
   });
 }
 if (lightboxBackdrop) {
+  lightboxBackdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
   lightboxBackdrop.addEventListener('click', (e) => {
     e.stopPropagation();
     closeLightbox();
   });
 }
-if (galleryImgBox) {
-  galleryImgBox.addEventListener('click', (e) => {
+if (lightboxCard) {
+  lightboxCard.addEventListener('pointerdown', (e) => e.stopPropagation());
+  lightboxCard.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (currentGalleryImages && currentGalleryImages[currentGalleryIndex]) {
-      const activeItem = currentGalleryImages[currentGalleryIndex];
-      openLightbox(galleryImg ? galleryImg.src : activeItem.src, activeItem.caption);
+    if (btnCloseLightbox && btnCloseLightbox.contains(e.target)) return;
+    if (!lightboxTypeState.typingDone) {
+      finishLightboxTypewriterImmediately();
     }
   });
-  galleryImgBox.addEventListener('pointerdown', (e) => e.stopPropagation());
-}
-
-if (btnGalleryPrev) {
-  btnGalleryPrev.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showGallerySlide(currentGalleryIndex - 1);
-  });
-  btnGalleryPrev.addEventListener('pointerdown', (e) => e.stopPropagation());
-}
-
-if (btnGalleryNext) {
-  btnGalleryNext.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showGallerySlide(currentGalleryIndex + 1);
-  });
-  btnGalleryNext.addEventListener('pointerdown', (e) => e.stopPropagation());
 }
 
 function openInteractableModal(item) {
@@ -1824,20 +1850,30 @@ window.addEventListener('keydown', (e) => {
 
   if (modalState.open) {
     if (imageLightbox && !imageLightbox.classList.contains('hidden')) {
-      if (e.code === 'Space' || e.code === 'KeyE') {
+      if (e.code === 'ArrowLeft' && currentGalleryImages.length > 0) {
+        e.preventDefault();
+        openLightboxForIndex(currentGalleryIndex - 1);
+        return;
+      }
+      if (e.code === 'ArrowRight' && currentGalleryImages.length > 0) {
+        e.preventDefault();
+        openLightboxForIndex(currentGalleryIndex + 1);
+        return;
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!lightboxTypeState.typingDone) {
+          finishLightboxTypewriterImmediately();
+        } else {
+          closeLightbox();
+        }
+        return;
+      }
+      if (e.code === 'KeyE') {
         e.preventDefault();
         closeLightbox();
         return;
       }
-    }
-    if (e.code === 'ArrowLeft' && currentGalleryImages.length > 0) {
-      e.preventDefault();
-      showGallerySlide(currentGalleryIndex - 1);
-      return;
-    }
-    if (e.code === 'ArrowRight' && currentGalleryImages.length > 0) {
-      e.preventDefault();
-      showGallerySlide(currentGalleryIndex + 1);
       return;
     }
     if (e.code === 'Space') {

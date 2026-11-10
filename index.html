@@ -228,50 +228,15 @@
             <p id="modal-text"></p>
             <p id="modal-note" class="story-note hidden"></p>
 
-            <!-- Khung Thư viện Ảnh Tư liệu Lịch sử (Interactive Image Gallery) -->
+            <!-- Khung Thư viện Ảnh Tư liệu Lịch sử (Tầng 1: Dải ảnh thu nhỏ chạy vòng từ phải qua trái) -->
             <section id="modal-gallery" class="modal-gallery hidden" aria-label="Hình ảnh tư liệu lịch sử">
               <div class="gallery-heading-bar">
                 <span class="gallery-badge">HÌNH ẢNH TƯ LIỆU</span>
-                <span id="gallery-counter" class="gallery-counter">1 / 4</span>
+                <span class="gallery-sub-hint">Bấm vào ảnh bất kỳ để xem chi tiết</span>
               </div>
 
-              <div class="gallery-slider-wrap">
-                <button type="button" id="btn-gallery-prev" class="gallery-nav-btn prev-btn" aria-label="Xem ảnh trước">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="15 18 9 12 15 6"></polyline>
-                  </svg>
-                </button>
-
-                <div class="gallery-viewport">
-                  <div class="gallery-img-box" id="gallery-img-box" title="Bấm để phóng to xem chi tiết">
-                    <img id="gallery-img" src="" alt="Hình ảnh tư liệu lịch sử" />
-                    <div id="gallery-img-fallback-note" class="gallery-fallback-note hidden">
-                      <span>Đang kết nối hình ảnh tư liệu...</span>
-                    </div>
-                    <div class="gallery-zoom-hint">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        <line x1="11" y1="8" x2="11" y2="14"></line>
-                        <line x1="8" y1="11" x2="14" y2="11"></line>
-                      </svg>
-                      <span>Phóng to</span>
-                    </div>
-                  </div>
-                  <figcaption id="gallery-caption" class="gallery-caption"></figcaption>
-                </div>
-
-                <button type="button" id="btn-gallery-next" class="gallery-nav-btn next-btn" aria-label="Xem ảnh kế tiếp">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                  </svg>
-                </button>
-              </div>
-
-              <!-- Dãy nút chọn ảnh Thumbnail Strip & Indicator Dots -->
-              <div class="gallery-controls-bottom">
-                <div id="gallery-dots" class="gallery-dots"></div>
-                <div id="gallery-thumbs" class="gallery-thumbs"></div>
+              <div id="gallery-marquee-viewport" class="gallery-marquee-viewport">
+                <div id="gallery-marquee-track" class="gallery-marquee-track"></div>
               </div>
             </section>
           </div>
@@ -286,15 +251,27 @@
         </article>
       </div>
 
-      <!-- Lightbox Xem Toàn cảnh Ảnh Tư liệu (Full-resolution Lightbox) -->
+      <!-- Tầng 2: Chi tiết Ảnh Tư liệu (Ảnh lớn bên trái — Nội dung gõ chữ Typewriter bên phải) -->
       <div id="image-lightbox" class="image-lightbox hidden" role="dialog" aria-modal="true" aria-label="Xem ảnh chi tiết">
         <div class="lightbox-overlay" id="lightbox-backdrop"></div>
-        <div class="lightbox-content">
+        <div class="lightbox-content" id="lightbox-card">
           <button type="button" id="btn-close-lightbox" class="lightbox-close-btn" aria-label="Đóng xem ảnh">✕</button>
-          <div class="lightbox-img-wrap">
-            <img id="lightbox-img" src="" alt="Tư liệu toàn cảnh" />
+          <div class="lightbox-split-layout">
+            <div class="lightbox-img-wrap">
+              <img id="lightbox-img" src="" alt="Tư liệu toàn cảnh" />
+            </div>
+            <div class="lightbox-text-panel" id="lightbox-text-panel">
+              <div class="lightbox-tag-row">
+                <span id="lightbox-badge" class="gallery-badge">TƯ LIỆU CHI TIẾT</span>
+              </div>
+              <h3 id="lightbox-title" class="lightbox-title hidden"></h3>
+              <div class="lightbox-divider"></div>
+              <p id="lightbox-caption" class="lightbox-caption"></p>
+              <div class="lightbox-hint-footer">
+                <span id="lightbox-type-hint">Chạm vào khung chữ hoặc ấn SPACE để hiện nhanh</span>
+              </div>
+            </div>
           </div>
-          <p id="lightbox-caption" class="lightbox-caption"></p>
         </div>
       </div>
 
