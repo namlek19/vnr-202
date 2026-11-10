@@ -103,6 +103,7 @@ function syncImageFolders() {
   }
 }
 
+// Bidirectional sync between public/image and public/audio/image (updated)
 syncImageFolders();
 const INITIAL_IMAGE_SCAN = scanAllImages();
 

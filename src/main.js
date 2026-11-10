@@ -259,6 +259,7 @@ function scheduleVictoryBannerModal(banner) {
       title: banner.title,
       content: banner.quote,
       note: banner.note,
+      images: banner.images || null,
     });
   }, 900);
 }
@@ -790,17 +791,30 @@ function setupGallery(images) {
 
   galleryMarqueeTrack.innerHTML = '';
 
-  // Tạo danh sách nhân đôi liền mạch để chạy vòng tròn vô tận từ phải qua trái (-50%)
-  const halfSet = [];
-  const minHalfCount = Math.max(6, images.length * 2);
-  while (halfSet.length < minHalfCount) {
-    for (let i = 0; i < images.length; i++) {
-      halfSet.push({ item: images[i], originalIdx: i });
-    }
-  }
-  const seamlessLoopList = [...halfSet, ...halfSet];
+  // Khi có ít ảnh (<= 4 ảnh), hiển thị chính xác số lượng ảnh thực tế và căn giữa đẹp mắt, không nhân bản lặp lại
+  const shouldAnimate = images.length > 4;
+  let listToRender;
 
-  seamlessLoopList.forEach(({ item, originalIdx }) => {
+  if (shouldAnimate) {
+    const halfSet = [];
+    const minHalfCount = Math.max(6, images.length * 2);
+    while (halfSet.length < minHalfCount) {
+      for (let i = 0; i < images.length; i++) {
+        halfSet.push({ item: images[i], originalIdx: i });
+      }
+    }
+    listToRender = [...halfSet, ...halfSet];
+    galleryMarqueeTrack.style.animation = 'galleryMarqueeRightToLeft 22s linear infinite';
+    galleryMarqueeTrack.style.justifyContent = 'flex-start';
+    galleryMarqueeTrack.style.width = 'max-content';
+  } else {
+    listToRender = images.map((item, originalIdx) => ({ item, originalIdx }));
+    galleryMarqueeTrack.style.animation = 'none';
+    galleryMarqueeTrack.style.justifyContent = 'center';
+    galleryMarqueeTrack.style.width = '100%';
+  }
+
+  listToRender.forEach(({ item, originalIdx }) => {
     const cardBtn = document.createElement('button');
     cardBtn.type = 'button';
     cardBtn.className = 'gallery-marquee-card';
@@ -1894,10 +1908,44 @@ window.addEventListener('keydown', (e) => {
 
   if (transitionState.active) return;
 
-  if (e.code === 'KeyE' && !e.repeat && nearbyInteractable) {
-    e.preventDefault();
-    openInteractableModal(nearbyInteractable);
-    return;
+  if (e.code === 'KeyE' && !e.repeat) {
+    if (nearbyInteractable) {
+      e.preventDefault();
+      openInteractableModal(nearbyInteractable);
+      return;
+    }
+    if (currentAct === 1 && player.x >= 2560 && player.x <= 2815) {
+      e.preventDefault();
+      const zone1b = QTE_ZONES.find((q) => q.id === 'qte_1b');
+      if (completedQtes.has('qte_1b') && zone1b && zone1b.banner) {
+        openStoryModal({
+          tag: zone1b.banner.badge,
+          title: zone1b.banner.title,
+          content: zone1b.banner.quote,
+          note: zone1b.banner.note,
+          images: zone1b.banner.images || null,
+        });
+      } else {
+        triggerDirectCombatAction();
+      }
+      return;
+    }
+    if (currentAct === 2 && player.x >= 2595 && player.x <= 2790) {
+      e.preventDefault();
+      const zone2b = QTE_ZONES.find((q) => q.id === 'qte_2b');
+      if (completedQtes.has('qte_2b') && zone2b && zone2b.banner) {
+        openStoryModal({
+          tag: zone2b.banner.badge,
+          title: zone2b.banner.title,
+          content: zone2b.banner.quote,
+          note: zone2b.banner.note,
+          images: zone2b.banner.images || null,
+        });
+      } else {
+        triggerDirectCombatAction();
+      }
+      return;
+    }
   }
 
   if ((e.code === 'KeyF' || e.code === 'KeyJ') && !e.repeat) {

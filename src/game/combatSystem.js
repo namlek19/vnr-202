@@ -543,6 +543,18 @@ export class InWorldCombatSystem {
       return true;
     }
 
+    if (
+      completedQtes.has('qte_1b') &&
+      player.x >= 2560 &&
+      player.x <= 2815
+    ) {
+      const zone1b = QTE_ZONES.find((q) => q.id === 'qte_1b');
+      if (zone1b && zone1b.banner && this.onVictoryBanner) {
+        this.onVictoryBanner(zone1b.banner);
+      }
+      return true;
+    }
+
     // 2. Vung búa / đuốc đập phá Kho thóc Nhật (hồi chiêu 0.5s — chống bấm spam!)
     if (this.act1.hammerCooldown > 0) return false;
     const atDoor = this.act1.granaryHp > 0 && player.x >= 2245 && player.x <= 2395;
@@ -612,6 +624,18 @@ export class InWorldCombatSystem {
       this.vfx.triggerFlash(0.88, '#fef08a', 1.4);
       this.vfx.triggerShake(18, 0.5);
 
+      const zone2b = QTE_ZONES.find((q) => q.id === 'qte_2b');
+      if (zone2b && zone2b.banner && this.onVictoryBanner) {
+        this.onVictoryBanner(zone2b.banner);
+      }
+      return true;
+    }
+
+    if (
+      completedQtes.has('qte_2b') &&
+      player.x >= 2595 &&
+      player.x <= 2790
+    ) {
       const zone2b = QTE_ZONES.find((q) => q.id === 'qte_2b');
       if (zone2b && zone2b.banner && this.onVictoryBanner) {
         this.onVictoryBanner(zone2b.banner);
@@ -2337,6 +2361,18 @@ export class InWorldCombatSystem {
             '#fde047'
           );
         }
+      } else if (player.x >= 2560 && player.x <= 2815) {
+        const bx = 2720 - cameraX;
+        const bgy = getGroundY(2720);
+        if (bx > -220 && bx < width + 220) {
+          this.drawCompactWorldTag(
+            ctx,
+            bx,
+            bgy - 286,
+            `${actBtnLabel} Tuyên ngôn Độc lập (2/9/1945)`,
+            '#fde047'
+          );
+        }
       }
     }
 
@@ -2412,6 +2448,17 @@ export class InWorldCombatSystem {
             rx,
             baseGroundY - 122,
             `${actBtnLabel} Phất cờ Quyết chiến Quyết thắng trên nóc hầm!`,
+            '#fde047'
+          );
+        }
+      } else if (player.x >= 2595 && player.x <= 2790) {
+        const rx = 2695 - cameraX;
+        if (rx > -220 && rx < width + 220) {
+          this.drawCompactWorldTag(
+            ctx,
+            rx,
+            baseGroundY - 122,
+            `${actBtnLabel} Chiến thắng Điện Biên Phủ (7/5/1954)`,
             '#fde047'
           );
         }
