@@ -7,6 +7,8 @@ import {
   sampleGroundOffset,
   getZoneName,
 } from './data/storyData.js';
+import { getQuizByAct } from './data/quizData.js';
+import createQuizModal from './game/quizModal.js';
 import { SoundEngine } from './audio/soundEngine.js';
 import { VfxSystem } from './game/vfx.js';
 import { WorldRenderer } from './game/renderer.js';
@@ -210,6 +212,15 @@ const modalState = {
   timerId: null,
 };
 
+// Quiz cuối mỗi Màn: hiển thị trước khi Màn chơi kết thúc
+const ACT4_QUIZ_DELAY = 3.5; // giây sau khi dâng hương xong ở Màn 4 thì hiện câu hỏi
+const quizState = {
+  open: false,
+  instance: null,
+  doneActs: new Set(), // các Màn đã làm xong quiz
+  results: {}, // { [actId]: { score, total } }
+};
+
 // Cinematic Auto-Walk & Generational Handoff State Machine
 const transitionState = {
   active: false,
@@ -306,7 +317,7 @@ function syncTouchControlsVisibility() {
   touchControls.classList.toggle('hidden', !showCluster);
 
   if (showCluster) {
-    const shouldDim = modalState.open || transitionState.active;
+    const shouldDim = modalState.open || quizState.open || transitionState.active;
     touchControls.classList.toggle('soft-dim', shouldDim);
   }
 }
@@ -459,7 +470,13 @@ function snapPlayerToSurface(localX, platformId = null) {
 
 function triggerPlayerJump() {
   const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
-  if (!gameStarted || modalState.open || transitionState.active || isCeremonyBowing) {
+  if (
+    !gameStarted ||
+    modalState.open ||
+    quizState.open ||
+    transitionState.active ||
+    isCeremonyBowing
+  ) {
     return;
   }
   player.jumpBufferTimer = 0.14;
@@ -467,7 +484,13 @@ function triggerPlayerJump() {
 
 function triggerPlayerDropThrough() {
   const isCeremonyBowing = finaleState.completed && finaleState.postTimer < 2.5;
-  if (!gameStarted || modalState.open || transitionState.active || isCeremonyBowing) {
+  if (
+    !gameStarted ||
+    modalState.open ||
+    quizState.open ||
+    transitionState.active ||
+    isCeremonyBowing
+  ) {
     return;
   }
   if (player.onGround && player.currentPlatformId !== null) {
@@ -487,6 +510,7 @@ function triggerDirectCombatAction() {
     !gameStarted ||
     isPortraitPaused ||
     modalState.open ||
+    quizState.open ||
     transitionState.active ||
     isCeremonyBowing
   ) {
@@ -1072,6 +1096,56 @@ function closeStoryModal() {
   syncTouchControlsVisibility();
 }
 
+// ==================== ACT QUIZ (câu hỏi cuối mỗi Màn) ====================
+/**
+ * Mở quiz của Màn `actId`. `onDone` được gọi sau khi người chơi bấm "Tiếp tục".
+ * Màn không có câu hỏi thì bỏ qua và gọi `onDone` ngay.
+ */
+function openActQuiz(actId, onDone) {
+  if (quizState.open) return;
+
+  const questions = getQuizByAct(actId);
+  if (!questions || questions.length === 0) {
+    quizState.doneActs.add(actId);
+    if (onDone) onDone();
+    return;
+  }
+
+  // Dừng mọi input đang giữ để nhân vật không tự chạy khi quiz đóng lại
+  keysDown.clear();
+  incenseHoldPointers.clear();
+  btnHoldIncense.classList.remove('holding');
+  btnTouchAttack.classList.remove('pressed');
+  resetJoystickVisualAndState();
+  autoSeekItem = null;
+  player.vx = 0;
+
+  quizState.open = true;
+  canvas.classList.add('canvas-blurred');
+  sound.playModalOpen();
+
+  quizState.instance = createQuizModal({
+    actId,
+    onComplete: ({ actId: doneActId, score, total }) => {
+      quizState.results[doneActId] = { score, total };
+      quizState.doneActs.add(doneActId);
+      closeActQuiz();
+      if (onDone) onDone();
+    },
+  });
+
+  syncTouchControlsVisibility();
+}
+
+function closeActQuiz() {
+  if (!quizState.open) return;
+  if (quizState.instance) quizState.instance.destroy();
+  quizState.instance = null;
+  quizState.open = false;
+  canvas.classList.remove('canvas-blurred');
+  syncTouchControlsVisibility();
+}
+
 // ==================== CINEMATIC TRANSITION & AUTO-WALK ENGINE ====================
 function clearTransientOverlays() {
   if (pendingMilestoneTimer) {
@@ -1088,6 +1162,7 @@ function clearTransientOverlays() {
   btnTouchAttack.classList.remove('pressed');
 
   closeStoryModal();
+  closeActQuiz();
   closeChapterDrawer();
   hideCinematicCaption();
   incenseHud.classList.add('hidden');
@@ -1237,6 +1312,11 @@ function jumpToChapterFromMenu(actNumber) {
   });
 
   combatSystem.resetForChapterJump(actNumber);
+
+  for (let a = actNumber; a <= 4; a++) {
+    quizState.doneActs.delete(a);
+    delete quizState.results[a];
+  }
 
   if (actNumber <= 4) {
     finaleState.holdProgress = 0;
@@ -1765,7 +1845,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!gameStarted || isPortraitPaused) return;
   sound.init();
 
-  if (modalState.open || transitionState.active) {
+  if (modalState.open || quizState.open || transitionState.active) {
     return;
   }
 
@@ -1842,6 +1922,9 @@ window.addEventListener('keydown', (e) => {
     }
     return;
   }
+
+  // Đang mở quiz: hộp thoại tự xử lý bàn phím, game không nhận phím
+  if (quizState.open) return;
 
   if (e.code === 'Escape') {
     closeChapterDrawer();
@@ -2313,8 +2396,15 @@ function updatePlatformerPhysics(rawDt) {
       player.x = WORLD_CONFIG.exitTriggerX - 4;
       player.vx = 0;
     } else if (moveRight || player.vx > 15) {
-      startForwardActTransition();
-      return;
+      if (!quizState.doneActs.has(currentAct)) {
+        // Chưa làm quiz: giữ người chơi tại cổng Màn và hiện câu hỏi trước khi chuyển Màn
+        player.x = WORLD_CONFIG.exitTriggerX - 4;
+        player.vx = 0;
+        openActQuiz(currentAct, startForwardActTransition);
+      } else {
+        startForwardActTransition();
+        return;
+      }
     } else {
       player.x = WORLD_CONFIG.exitTriggerX - 2;
       player.vx = 0;
@@ -2480,7 +2570,8 @@ function updateActionGuidanceBanner() {
     !gameStarted ||
     isPortraitPaused ||
     transitionState.active ||
-    modalState.open
+    modalState.open ||
+    quizState.open
   ) {
     hideActionBanner();
     return;
@@ -2662,6 +2753,7 @@ function gameLoop(now) {
     canControl =
       gameStarted &&
       !modalState.open &&
+      !quizState.open &&
       !isCeremonyBowing;
 
     if (canControl) {
@@ -2696,7 +2788,7 @@ function gameLoop(now) {
 
   // Check nearby Interactable ([E] on PC / [Chạm] on Mobile)
   nearbyInteractable = null;
-  if (gameStarted && !transitionState.active && !modalState.open) {
+  if (gameStarted && !transitionState.active && !modalState.open && !quizState.open) {
     let bestDist = WORLD_CONFIG.interactRadiusX;
     for (const item of interactablesState) {
       if (item.act !== currentAct) continue;
@@ -2864,6 +2956,16 @@ function gameLoop(now) {
         if (companionsState.sharedPose === 'bow_incense') {
           companionsState.sharedPose = null;
         }
+      }
+
+      // Hoàn thành dâng hương = kết thúc Màn 4 → hiện quiz Màn 4
+      if (
+        finaleState.postTimer >= ACT4_QUIZ_DELAY &&
+        !quizState.open &&
+        !modalState.open &&
+        !quizState.doneActs.has(4)
+      ) {
+        openActQuiz(4);
       }
     }
   } else {
