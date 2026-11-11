@@ -21,10 +21,7 @@ function getResultMessage(score, total) {
   if (total > 0 && score === total) {
     return 'Xuất sắc! Bạn đã nắm vững các mốc lịch sử của màn này.';
   }
-  if (score > 0) {
-    return 'Khá tốt! Hãy ghi nhớ thêm các văn kiện đã thu thập để lần sau trọn điểm.';
-  }
-  return 'Đừng lo — hãy xem lại các văn kiện trong màn chơi rồi thử lại nhé.';
+  return 'Bạn cần trả lời đúng tất cả các câu để sang màn tiếp theo.';
 }
 
 /** Tạo phần tử DOM: el(tag, { className, onClick, 'aria-label': ... }, ...children) */
@@ -274,6 +271,7 @@ export default function createQuizModal({ actId, onComplete, parent } = {}) {
   // ---------- Màn hình kết quả ----------
   function buildResult() {
     const total = getTotal();
+    const passed = total > 0 && score === total;
 
     headingEl = el(
       'h2',
@@ -307,19 +305,20 @@ export default function createQuizModal({ actId, onComplete, parent } = {}) {
           { type: 'button', className: 'subtle-action-btn quiz-btn', onClick: retry },
           'Làm lại'
         ),
-        el(
-          'button',
-          {
-            type: 'button',
-            className: 'primary-clean-btn quiz-btn',
-            onClick: () => {
-              if (controller.onComplete) {
-                controller.onComplete({ actId: currentActId, score, total });
-              }
+        passed &&
+          el(
+            'button',
+            {
+              type: 'button',
+              className: 'primary-clean-btn quiz-btn',
+              onClick: () => {
+                if (controller.onComplete) {
+                  controller.onComplete({ actId: currentActId, score, total });
+                }
+              },
             },
-          },
-          'Tiếp tục'
-        )
+            'Tiếp tục'
+          )
       ),
     ];
   }
@@ -342,6 +341,11 @@ export default function createQuizModal({ actId, onComplete, parent } = {}) {
 
     // Quản lý focus: câu hỏi mới / kết quả → tiêu đề
     if (headingEl) headingEl.focus({ preventScroll: true });
+
+    if (finished && score !== getTotal()) {
+      const retryBtn = card.querySelector('.subtle-action-btn');
+      if (retryBtn) retryBtn.focus({ preventScroll: true });
+    }
   }
 
   render();
